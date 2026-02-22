@@ -88,25 +88,6 @@ function RootLayoutNav() {
         }
     }, [user?.id, refreshProfile]);
 
-    useEffect(() => {
-        if (isLoading) {
-            console.log("RootLayoutNav: Still Loading auth context...");
-            return;
-        }
-
-        const inAuthGroup = segments[0] === '(auth)';
-        console.log(`RootLayoutNav: Done loading auth. InAuthGroup: ${inAuthGroup}, isAuthenticated: ${isAuthenticated}`);
-
-        if (!isAuthenticated && !inAuthGroup) {
-            // Redirect to the login page if not signed in and not in the auth group
-            console.log("RootLayoutNav: Navigating to /(auth)/login");
-            router.replace('/(auth)/login');
-        } else if (isAuthenticated && inAuthGroup) {
-            // Redirect to the home page if signed in and in the auth group
-            console.log("RootLayoutNav: Navigating to /(app)/(tabs)");
-            router.replace('/(app)/(tabs)');
-        }
-    }, [isAuthenticated, isLoading, segments]);
 
     if (isLoading) {
         return (
@@ -117,30 +98,18 @@ function RootLayoutNav() {
     }
 
     return (
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="index" options={{ headerShown: false }} />
-            {/* Expose Visite as a modal or screen via navigation */}
-            <Stack.Screen name="visite/[id]" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>
     );
 }
 
 export default function RootLayout() {
-    const [loaded] = useFonts({
-        // Load custom fonts if needed
-    });
-
     useEffect(() => {
-        if (loaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [loaded]);
-
-    if (!loaded) {
-        return null;
-    }
+        SplashScreen.hideAsync();
+    }, []);
 
     return (
         <AuthProvider>

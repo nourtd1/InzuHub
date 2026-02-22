@@ -21,6 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.inzuhub.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },

@@ -13,7 +13,7 @@ Contexte :
 À Gisenyi, lorsqu'une personne cherche une maison à louer, le processus est encore très informel et inefficace. Il n'existe pas de plateforme centralisée et structurée permettant d'accéder facilement aux offres disponibles.
 
 
-
+        
 Les principaux problèmes observés sont :
 
 
