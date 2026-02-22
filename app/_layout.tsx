@@ -89,15 +89,21 @@ function RootLayoutNav() {
     }, [user?.id, refreshProfile]);
 
     useEffect(() => {
-        if (isLoading) return;
+        if (isLoading) {
+            console.log("RootLayoutNav: Still Loading auth context...");
+            return;
+        }
 
         const inAuthGroup = segments[0] === '(auth)';
+        console.log(`RootLayoutNav: Done loading auth. InAuthGroup: ${inAuthGroup}, isAuthenticated: ${isAuthenticated}`);
 
         if (!isAuthenticated && !inAuthGroup) {
             // Redirect to the login page if not signed in and not in the auth group
+            console.log("RootLayoutNav: Navigating to /(auth)/login");
             router.replace('/(auth)/login');
         } else if (isAuthenticated && inAuthGroup) {
             // Redirect to the home page if signed in and in the auth group
+            console.log("RootLayoutNav: Navigating to /(app)/(tabs)");
             router.replace('/(app)/(tabs)');
         }
     }, [isAuthenticated, isLoading, segments]);

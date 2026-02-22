@@ -26,13 +26,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        console.log("AuthContext: Starting initial session check...");
         // 1. Check active session on mount
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+            console.log("AuthContext: getSession finished. Error?", error, "Session?", !!session);
+            if (error) {
+                console.error("Erreur gession de session:", error);
+            }
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                authService.fetchProfile(session.user.id).then(setProfile);
+                console.log("AuthContext: fetching profile for user", session.user.id);
+                authService.fetchProfile(session.user.id).then(prof => {
+                    console.log("AuthContext: Profile fetched:", !!prof);
+                    setProfile(prof);
+                });
             }
+        }).catch((err) => {
+            console.error("Session fetch failed completely:", err);
+        }).finally(() => {
+            console.log("AuthContext: getSession finally block executing, setting isLoading false");
             setIsLoading(false);
         });
 
