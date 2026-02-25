@@ -16,6 +16,7 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 
 import { usePropertyDetail } from '../../../src/hooks/usePropertyDetail';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../src/constants/theme';
 import { formatPrixMensuel, formatDateRelative, formatPrix } from '../../../src/utils/formatters';
 
@@ -42,6 +43,7 @@ export default function PropertyDetailScreen() {
     } = usePropertyDetail(id as string);
 
     const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+    const insets = useSafeAreaInsets();
 
     const handleShare = async () => {
         if (!property) return;
@@ -100,7 +102,7 @@ export default function PropertyDetailScreen() {
                 <PhotoGallery photos={property.photos} propertyTitle={property.titre} />
 
                 {/* Boutons flottants en haut */}
-                <View style={styles.floatingHeader}>
+                <View style={[styles.floatingHeader, { top: Math.max(insets.top, SPACING.md) }]}>
                     <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
                         <MaterialIcons name="arrow-back" size={24} color={COLORS.textPrimary} />
                     </TouchableOpacity>
@@ -286,7 +288,7 @@ export default function PropertyDetailScreen() {
             </ScrollView>
 
             {/* BARRE D'ACTION FIXE */}
-            <View style={styles.bottomBar}>
+            <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
                 <View style={styles.bottomBarPriceInfo}>
                     <Text style={styles.bottomBarPrice}>{formatPrixMensuel(property.prix_mensuel)}</Text>
                     <Text style={styles.bottomBarGarantie}>Garantie : {property.garantie_exigee} mois</Text>
@@ -356,7 +358,6 @@ const styles = StyleSheet.create({
     },
     floatingHeader: {
         position: 'absolute',
-        top: Platform.OS === 'ios' ? 50 : 30, // Safe area approx
         left: SPACING.md,
         right: SPACING.md,
         flexDirection: 'row',
@@ -652,7 +653,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingHorizontal: SPACING.lg,
         paddingTop: SPACING.md,
-        paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md, // Safe area approx
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.1,

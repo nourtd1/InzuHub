@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 
 interface ChatInputBarProps {
@@ -22,6 +23,7 @@ export default function ChatInputBar({
     canProposeVisite,
     visiteStatus
 }: ChatInputBarProps) {
+    const insets = useSafeAreaInsets();
 
     const handleSend = () => {
         if (value.trim() && !isSending) {
@@ -35,7 +37,7 @@ export default function ChatInputBar({
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             style={styles.keyboardContainer}
         >
-            <View style={styles.container}>
+            <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
                 {canProposeVisite && visiteStatus === 'confirmee' && (
                     <View style={styles.visitConfirmedBadge}>
                         <Text style={styles.visitConfirmedText}>✅ Visite confirmée</Text>
@@ -98,7 +100,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
         padding: SPACING.md,
-        paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md,
         backgroundColor: COLORS.surface,
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: COLORS.border,

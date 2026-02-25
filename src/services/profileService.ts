@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Utilisateur } from '../types/database.types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 
 export interface ProfileStats {
@@ -32,7 +32,7 @@ export const profileService = {
 
     async uploadAvatar(userId: string, imageUri: string): Promise<string> {
         try {
-            const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
+            const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
             const filePath = `${userId}/avatar_${Date.now()}.jpg`;
 
             // Supprimer potentiellement l'ancien avatar s'il existe dans le dossier (Optionnel, on met juste un nouveau tag pour l'instant)

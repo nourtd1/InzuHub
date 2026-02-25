@@ -3,14 +3,17 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InputField } from '../../src/components/ui/InputField';
 import { Button } from '../../src/components/ui/Button';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from '../../src/i18n/useTranslation';
 
 export default function LoginScreen() {
     const router = useRouter();
     const { signIn } = useAuth();
+    const { t } = useTranslation();
 
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
@@ -18,14 +21,14 @@ export default function LoginScreen() {
 
     const handleLogin = async () => {
         if (!phone || !password) {
-            Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+            Alert.alert(t('common.error'), t('auth.errors.invalid_credentials'));
             return;
         }
 
         // Basic validation for phone to ensure it matches format roughly before sending
         const phoneRegex = /^\+2507[0-9]{8}$/;
         if (!phoneRegex.test(phone)) {
-            Alert.alert('Erreur', 'Numéro de téléphone invalide. Format: +250788123456');
+            Alert.alert(t('common.error'), t('auth.phone_error'));
             return;
         }
 
@@ -38,15 +41,17 @@ export default function LoginScreen() {
         setLoading(false);
 
         if (error) {
-            Alert.alert('Erreur', error);
+            Alert.alert(t('common.error'), error);
         }
     };
 
+    const insets = useSafeAreaInsets();
+
     return (
-        <ScrollView contentContainerStyle={styles.container} scrollEnabled={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.container, { paddingBottom: Math.max(insets.bottom, SPACING.lg), paddingTop: Math.max(insets.top, SPACING.lg) }]} scrollEnabled={false} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-                <Text style={styles.logo}>InzuHub</Text>
-                <Text style={styles.tagline}>Trouvez votre maison à Gisenyi</Text>
+                <Text style={styles.logo}>{t('common.app_name')}</Text>
+                <Text style={styles.tagline}>{t('auth.login_subtitle')}</Text>
             </View>
 
             <View style={styles.illustration}>
@@ -55,15 +60,15 @@ export default function LoginScreen() {
 
             <View style={styles.form}>
                 <InputField
-                    label="Numéro de téléphone"
-                    placeholder="+250 7XX XXX XXX"
+                    label={t('auth.phone_label')}
+                    placeholder={t('auth.phone_placeholder')}
                     value={phone}
                     onChangeText={setPhone}
                     keyboardType="phone-pad"
                 />
 
                 <InputField
-                    label="Mot de passe"
+                    label={t('auth.password_label')}
                     placeholder="••••••••"
                     value={password}
                     onChangeText={setPassword}
@@ -71,7 +76,7 @@ export default function LoginScreen() {
                 />
 
                 <Button
-                    title="Se connecter"
+                    title={t('auth.login_button')}
                     onPress={handleLogin}
                     loading={loading}
                     disabled={loading}
@@ -79,9 +84,9 @@ export default function LoginScreen() {
                 />
 
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Pas encore de compte ? </Text>
+                    <Text style={styles.footerText}>{t('auth.no_account').split('?')[0]}? </Text>
                     <TouchableOpacity onPress={() => router.navigate('/(auth)/register')}>
-                        <Text style={styles.link}>S'inscrire</Text>
+                        <Text style={styles.link}>{t('auth.no_account').split('?')[1]?.trim()}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

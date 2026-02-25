@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Animated, 
 import MapView, { PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLocation } from '../../../src/hooks/useLocation';
 import { useMapProperties } from '../../../src/hooks/useMapProperties';
@@ -37,6 +38,7 @@ export default function MapScreen() {
 
     const [activeFilter, setActiveFilter] = useState<string>('all');
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const insets = useSafeAreaInsets();
 
     // Show counter animation when count changes
     useEffect(() => {
@@ -141,7 +143,7 @@ export default function MapScreen() {
                 ))}
             </MapView>
 
-            <View style={styles.topOverlayContainer}>
+            <View style={[styles.topOverlayContainer, { top: Math.max(insets.top, SPACING.md) }]}>
                 <View style={styles.searchBar}>
                     <MaterialIcons name="search" size={24} color={COLORS.textSecondary} />
                     <Text style={styles.searchText}>Rechercher dans cette zone</Text>
@@ -206,7 +208,6 @@ const styles = StyleSheet.create({
     },
     topOverlayContainer: {
         position: 'absolute',
-        top: SPACING.xxl, // Handle safe area properly in prod
         left: SPACING.lg,
         right: SPACING.lg,
         zIndex: 10,

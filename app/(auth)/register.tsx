@@ -1,17 +1,20 @@
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InputField } from '../../src/components/ui/InputField';
 import { Button } from '../../src/components/ui/Button';
 import { RoleSelector } from '../../src/components/ui/RoleSelector';
 import { PasswordStrengthIndicator } from '../../src/components/ui/PasswordStrengthIndicator';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
+import { useTranslation } from '../../src/i18n/useTranslation';
 
 export default function RegisterScreen() {
     const router = useRouter();
     const { signUp } = useAuth();
+    const { t } = useTranslation();
 
     const [nomComplet, setNomComplet] = useState('');
     const [phone, setPhone] = useState('');
@@ -25,20 +28,20 @@ export default function RegisterScreen() {
         const newErrors: { [key: string]: string } = {};
 
         if (nomComplet.length < 3) {
-            newErrors.nomComplet = 'Le nom complet doit contenir au moins 3 caractères';
+            newErrors.nomComplet = t('common.error');
         }
 
         const phoneRegex = /^\+2507[0-9]{8}$/;
         if (!phoneRegex.test(phone)) {
-            newErrors.phone = 'Format invalide. Ex: +250788123456';
+            newErrors.phone = t('auth.phone_error');
         }
 
         if (password.length < 8) {
-            newErrors.password = 'Le mot de passe doit contenir au moins 8 caractères';
+            newErrors.password = t('auth.password_placeholder');
         }
 
         if (password !== confirmPassword) {
-            newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+            newErrors.confirmPassword = t('auth.confirm_password_error');
         }
 
         setErrors(newErrors);
@@ -59,32 +62,34 @@ export default function RegisterScreen() {
         setLoading(false);
 
         if (error) {
-            Alert.alert('Erreur', error);
+            Alert.alert(t('common.error'), error);
         } else {
             // Navigation is handled by RootLayout's auth listener, but we can also force it if needed
             // router.replace('/(app)/(tabs)'); 
         }
     };
 
+    const insets = useSafeAreaInsets();
+
     return (
-        <ScrollView contentContainerStyle={styles.container} scrollEnabled={true}>
+        <ScrollView contentContainerStyle={[styles.container, { paddingBottom: Math.max(insets.bottom, SPACING.lg), paddingTop: Math.max(insets.top, SPACING.xxl) }]} scrollEnabled={true}>
             <View style={styles.header}>
-                <Text style={styles.logo}>InzuHub</Text>
-                <Text style={styles.tagline}>Trouvez votre maison à Gisenyi</Text>
+                <Text style={styles.logo}>{t('common.app_name')}</Text>
+                <Text style={styles.tagline}>{t('auth.login_subtitle')}</Text>
             </View>
 
             <View style={styles.form}>
                 <InputField
-                    label="Nom complet"
-                    placeholder="Ex: Jean-Paul Habimana"
+                    label={t('auth.name_label')}
+                    placeholder={t('auth.name_placeholder')}
                     value={nomComplet}
                     onChangeText={setNomComplet}
                     error={errors.nomComplet}
                 />
 
                 <InputField
-                    label="Numéro de téléphone"
-                    placeholder="+250 7XX XXX XXX"
+                    label={t('auth.phone_label')}
+                    placeholder={t('auth.phone_placeholder')}
                     value={phone}
                     onChangeText={setPhone}
                     keyboardType="phone-pad"
@@ -92,7 +97,7 @@ export default function RegisterScreen() {
                 />
 
                 <InputField
-                    label="Mot de passe"
+                    label={t('auth.password_label')}
                     placeholder="••••••••"
                     value={password}
                     onChangeText={setPassword}
@@ -102,7 +107,7 @@ export default function RegisterScreen() {
                 <PasswordStrengthIndicator password={password} />
 
                 <InputField
-                    label="Confirmer le mot de passe"
+                    label={t('auth.confirm_password_label')}
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -112,8 +117,15 @@ export default function RegisterScreen() {
 
                 <RoleSelector value={role} onChange={setRole} />
 
+                <Text style={styles.termsText}>
+                    En créant un compte, vous acceptez notre{' '}
+                    <Text style={styles.termsLink} onPress={() => Linking.openURL('https://www.privacypolicies.com/live/7ffeaaff-93c3-49e8-95b3-c0ad146864a4')}>
+                        Politique de confidentialité
+                    </Text>.
+                </Text>
+
                 <Button
-                    title="Créer mon compte"
+                    title={t('auth.register_button')}
                     onPress={handleRegister}
                     loading={loading}
                     disabled={loading}
@@ -121,9 +133,9 @@ export default function RegisterScreen() {
                 />
 
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Déjà un compte ? </Text>
+                    <Text style={styles.footerText}>{t('auth.has_account').split('?')[0]}? </Text>
                     <TouchableOpacity onPress={() => router.navigate('/(auth)/login')}>
-                        <Text style={styles.link}>Se connecter</Text>
+                        <Text style={styles.link}>{t('auth.has_account').split('?')[1]?.trim()}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -136,7 +148,6 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         backgroundColor: COLORS.background,
         padding: SPACING.lg,
-        paddingTop: SPACING.xxl,
     },
     header: {
         alignItems: 'center',
@@ -157,6 +168,17 @@ const styles = StyleSheet.create({
     },
     submitButton: {
         marginTop: SPACING.md,
+    },
+    termsText: {
+        fontSize: TYPOGRAPHY.fontSizeXS,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        marginTop: SPACING.lg,
+        paddingHorizontal: SPACING.md,
+    },
+    termsLink: {
+        color: COLORS.primary,
+        textDecorationLine: 'underline',
     },
     footer: {
         flexDirection: 'row',

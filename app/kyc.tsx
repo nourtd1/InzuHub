@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { StyleSheet, View, Text, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Theme from '../src/constants/theme';
 import { Button } from '../src/components/ui/Button';
@@ -15,7 +15,7 @@ export default function KYC() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <Text style={styles.title}>Vérification d'Identité</Text>
             <Text style={styles.description}>
                 Pour garantir la sécurité de la communauté InzuHub, nous devons vérifier votre identité.
@@ -34,7 +34,7 @@ export default function KYC() {
 
             <Button title="Commencer la vérification" onPress={handleVerify} />
             <Button title="Plus tard" variant="ghost" onPress={() => router.back()} style={{ marginTop: 10 }} />
-        </View>
+        </SafeAreaView>
     );
 }
 

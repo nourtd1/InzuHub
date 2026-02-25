@@ -16,6 +16,7 @@ import EditProfileModal from '../../../src/components/profile/EditProfileModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from '../../../src/i18n/useTranslation';
 
 export default function ProfileScreen() {
     const { signOut } = useAuth();
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
         deleteProperty
     } = useProfile();
 
+    const { t } = useTranslation();
     const [isParametresVisible, setIsParametresVisible] = useState(false);
     const [isEditVisible, setIsEditVisible] = useState(false);
 
@@ -46,12 +48,12 @@ export default function ProfileScreen() {
 
     const handleChangeAvatar = () => {
         Alert.alert(
-            "Modifier ma photo",
-            "Choisissez une option",
+            t('common.verify') === 'Vérifier' ? 'Modifier ma photo' : t('common.edit'), // Using fallback or common since profile.avatar isn't directly there
+            t('kyc.choose_gallery') === 'Choisir depuis la galerie' ? 'Choisissez une option' : t('common.choose_option', { defaultValue: 'Choisissez une option' }),
             [
-                { text: "Annuler", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 {
-                    text: "Choisir depuis la galerie",
+                    text: t('kyc.choose_gallery'),
                     onPress: async () => {
                         const result = await ImagePicker.launchImageLibraryAsync({
                             mediaTypes: ['images'],
@@ -65,7 +67,7 @@ export default function ProfileScreen() {
                     }
                 },
                 {
-                    text: "Prendre une photo",
+                    text: t('kyc.take_photo'),
                     onPress: async () => {
                         const result = await ImagePicker.launchCameraAsync({
                             allowsEditing: true,
@@ -83,18 +85,18 @@ export default function ProfileScreen() {
 
     const handleShare = () => {
         Share.share({
-            message: "Découvrez InzuHub, l'app de location immobilière à Gisenyi ! Trouvez votre maison sans commissionnaire 🏠"
+            message: t('profile.share_app_text')
         });
     };
 
     const handleLogout = () => {
         Alert.alert(
-            "Se déconnecter ?",
-            "Vous devrez vous reconnecter pour accéder à InzuHub.",
+            t('auth.logout_confirm_title'),
+            t('auth.logout_confirm_message'),
             [
-                { text: "Annuler", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 {
-                    text: "Se déconnecter",
+                    text: t('auth.logout'),
                     style: "destructive",
                     onPress: () => signOut()
                 }
@@ -102,14 +104,14 @@ export default function ProfileScreen() {
         );
     };
 
-    const roleLabel = profile.role === 'proprietaire' ? '🏠 Propriétaire' : profile.role === 'locataire' ? '🔍 Locataire' : '⚙ Administrateur';
+    const roleLabel = profile.role === 'proprietaire' ? `🏠 ${t('auth.role_owner')}` : profile.role === 'locataire' ? `🔍 ${t('auth.role_tenant')}` : '⚙ Administrateur';
     const roleColor = profile.role === 'proprietaire' ? COLORS.primary : profile.role === 'locataire' ? COLORS.secondary : COLORS.danger;
 
     return (
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Mon Profil</Text>
+                <Text style={styles.headerTitle}>{t('profile.title')}</Text>
                 <TouchableOpacity onPress={() => setIsParametresVisible(true)} style={styles.settingsBtn}>
                     <MaterialIcons name="settings" size={24} color={COLORS.textPrimary} />
                 </TouchableOpacity>
@@ -142,7 +144,7 @@ export default function ProfileScreen() {
                     </View>
 
                     <Text style={styles.userMeta}>📱 {profile.numero_telephone}</Text>
-                    <Text style={styles.userMeta}>Membre depuis {format(new Date(profile.date_inscription), 'MMM yyyy', { locale: fr })}</Text>
+                    <Text style={styles.userMeta}>{t('profile.member_since', { date: format(new Date(profile.date_inscription), 'MMM yyyy', { locale: fr }) })}</Text>
                 </LinearGradient>
 
                 {/* Trust Badge */}
@@ -166,21 +168,21 @@ export default function ProfileScreen() {
 
                 {/* Menu Actions */}
                 <View style={styles.menuContainer}>
-                    <MenuActionItem icon="person-outline" color={COLORS.primary} label="Modifier mon profil" onPress={() => setIsEditVisible(true)} />
-                    <MenuActionItem icon="flag" color={COLORS.danger} label="Mes signalements" onPress={() => { }} />
+                    <MenuActionItem icon="person-outline" color={COLORS.primary} label={t('profile.edit_profile')} onPress={() => setIsEditVisible(true)} />
+                    <MenuActionItem icon="flag" color={COLORS.danger} label={t('profile.my_reports')} onPress={() => { }} />
                     <View style={styles.divider} />
-                    <MenuActionItem icon="help-outline" color={COLORS.textSecondary} label="Aide et support" onPress={() => Linking.openURL('https://example.com/support')} />
-                    <MenuActionItem icon="star-outline" color={COLORS.warning} label="Noter l'application" onPress={() => { }} />
-                    <MenuActionItem icon="share" color={COLORS.secondary} label="Partager InzuHub" onPress={handleShare} />
+                    <MenuActionItem icon="help-outline" color={COLORS.textSecondary} label={t('profile.help')} onPress={() => Linking.openURL('https://example.com/support')} />
+                    <MenuActionItem icon="star-outline" color={COLORS.warning} label={t('profile.rate_app')} onPress={() => { }} />
+                    <MenuActionItem icon="share" color={COLORS.secondary} label={t('profile.share_app')} onPress={handleShare} />
                 </View>
 
                 {/* Bouton Déconnexion */}
                 <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
                     <MaterialIcons name="logout" size={20} color={COLORS.danger} style={{ marginRight: 8 }} />
-                    <Text style={styles.logoutText}>Se déconnecter</Text>
+                    <Text style={styles.logoutText}>{t('auth.logout')}</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.appVersion}>InzuHub v1.0.0 · Fait avec ❤️ pour Gisenyi</Text>
+                <Text style={styles.appVersion}>{t('profile.version')}</Text>
             </ScrollView>
 
             {/* Modals */}

@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../../src/constants/theme';
 import { usePostMediaStep } from '../../../src/hooks/usePostMediaStep';
 import PhotoGrid from '../../../src/components/post/PhotoGrid';
@@ -11,6 +12,7 @@ import GarantiePicker from '../../../src/components/post/GarantiePicker';
 export default function PostMediaStep() {
     const router = useRouter();
     const progressAnim = useRef(new Animated.Value(0)).current;
+    const insets = useSafeAreaInsets();
 
     const {
         photos, titre, prix_mensuel, garantie_exigee,
@@ -185,7 +187,7 @@ export default function PostMediaStep() {
 
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
                 <TouchableOpacity
                     style={[styles.nextBtn, !isStepValid && { opacity: 0.4 }]}
                     disabled={!isStepValid}
@@ -398,7 +400,6 @@ const styles = StyleSheet.create({
     },
     footer: {
         padding: SPACING.lg,
-        paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.lg,
         backgroundColor: COLORS.surface,
         borderTopWidth: 1,
         borderTopColor: COLORS.border,

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ProprieteAvecPhotos, Quartier, Utilisateur } from '../../types/database.types';
 import { COLORS, SPACING, BORDER_RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { formatPrixMensuel, formatDateRelative } from '../../utils/formatters';
+import { useTranslation } from '../../i18n/useTranslation';
 
 interface PropertyCardProps {
     property: ProprieteAvecPhotos & {
@@ -19,6 +20,7 @@ const blurhash =
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const { t } = useTranslation();
 
     const handlePressIn = useCallback(() => {
         Animated.spring(scaleAnim, {
@@ -46,11 +48,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress })
     const getStatusBadge = () => {
         switch (property.statut) {
             case 'disponible':
-                return { label: 'Disponible', color: COLORS.secondary };
+                return { label: t('property.available'), color: COLORS.secondary };
             case 'en_cours':
-                return { label: 'En discussion', color: COLORS.warning };
+                return { label: t('property.in_progress'), color: COLORS.warning };
             case 'loue':
-                return { label: 'Loué', color: COLORS.danger };
+                return { label: t('property.rented'), color: COLORS.danger };
             default:
                 return { label: 'Indisponible', color: COLORS.textSecondary };
         }
@@ -89,7 +91,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress })
                     {property.proprietaire.statut_verification && (
                         <View style={[styles.badge, styles.verifiedBadge]}>
                             <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} style={{ marginRight: 4 }} />
-                            <Text style={styles.verifiedText}>Vérifié</Text>
+                            <Text style={styles.verifiedText}>{t('property.verified')}</Text>
                         </View>
                     )}
 
@@ -117,11 +119,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress })
                     <View style={styles.featuresContainer}>
                         <View style={styles.featureItem}>
                             <Ionicons name="bed-outline" size={16} color={COLORS.textSecondary} />
-                            <Text style={styles.featureText}>{property.nombre_chambres} ch.</Text>
+                            <Text style={styles.featureText}>{property.nombre_chambres} {t('property.bedrooms').trim()}</Text>
                         </View>
                         <View style={styles.featureItem}>
                             <Ionicons name="grid-outline" size={16} color={COLORS.textSecondary} />
-                            <Text style={styles.featureText}>{property.nombre_salons} salon</Text>
+                            <Text style={styles.featureText}>{property.nombre_salons} {t('property.living_rooms').trim()}</Text>
                         </View>
                         <View style={styles.featureItem}>
                             <Ionicons name="water" size={16} color={property.has_eau ? COLORS.secondary : COLORS.textSecondary} />
@@ -135,7 +137,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress })
                     <View style={styles.priceContainer}>
                         <Text style={styles.priceText}>{formatPrixMensuel(property.prix_mensuel)}</Text>
                         {property.garantie_exigee > 0 && (
-                            <Text style={styles.guaranteeText}>Garantie : {property.garantie_exigee} mois</Text>
+                            <Text style={styles.guaranteeText}>{t('property.guarantee')} : {property.garantie_exigee} {t('property.months')}</Text>
                         )}
                     </View>
 

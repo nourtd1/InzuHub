@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants/theme';
 import { Button } from '../ui/Button';
+import { useTranslation } from '../../i18n/useTranslation';
 
 interface EmptyStateChatProps {
     role: 'locataire' | 'proprietaire' | 'administrateur';
@@ -11,6 +12,7 @@ interface EmptyStateChatProps {
 
 export default function EmptyStateChat({ role }: EmptyStateChatProps) {
     const isLocataire = role === 'locataire';
+    const { t } = useTranslation();
 
     return (
         <View style={styles.container}>
@@ -26,17 +28,17 @@ export default function EmptyStateChat({ role }: EmptyStateChatProps) {
             </View>
 
             <Text style={styles.title}>
-                {isLocataire ? "Aucune conversation" : "Aucune demande reçue"}
+                {isLocataire ? t('chat.empty_tenant_title') : t('chat.empty_owner_title')}
             </Text>
 
             <Text style={styles.subtitle}>
                 {isLocataire
-                    ? "Trouvez un logement et contactez directement son propriétaire, sans commissionnaire !"
-                    : "Publiez votre annonce pour recevoir des messages de locataires intéressés."}
+                    ? t('chat.empty_tenant_subtitle')
+                    : t('chat.empty_owner_subtitle')}
             </Text>
 
             <Button
-                title={isLocataire ? "Explorer les logements 🏠" : "Publier une annonce +"}
+                title={isLocataire ? t('chat.empty_tenant_cta') : t('chat.empty_owner_cta')}
                 onPress={() => {
                     if (isLocataire) {
                         router.push('/(app)/(tabs)/');

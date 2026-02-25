@@ -1,17 +1,21 @@
 import 'react-native-reanimated';
 
 import { Slot, SplashScreen, Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthProvider } from '../src/store/AuthContext';
 import { UnreadProvider } from '../src/store/UnreadContext';
 import { useAuth } from '../src/hooks/useAuth';
 import { useFonts } from 'expo-font';
 import { View, ActivityIndicator } from 'react-native';
+import '../src/i18n';
+import { loadSavedLanguage } from '../src/i18n';
+import i18n from '../src/i18n';
 import { COLORS } from '../src/constants/theme';
 import * as Notifications from 'expo-notifications';
 import { notificationService } from '../src/services/notificationService';
 import { supabase } from '../src/lib/supabase';
 import { KycDemande } from '../src/types/database.types';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -107,15 +111,32 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+    const [i18nReady, setI18nReady] = useState(false);
+
     useEffect(() => {
-        SplashScreen.hideAsync();
+        loadSavedLanguage().then(lang => {
+            i18n.changeLanguage(lang).then(() => {
+                setI18nReady(true);
+                SplashScreen.hideAsync();
+            });
+        });
     }, []);
 
+    if (!i18nReady) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+        );
+    }
+
     return (
-        <AuthProvider>
-            <UnreadProvider>
-                <RootLayoutNav />
-            </UnreadProvider>
-        </AuthProvider>
+        <SafeAreaProvider>
+            <AuthProvider>
+                <UnreadProvider>
+                    <RootLayoutNav />
+                </UnreadProvider>
+            </AuthProvider>
+        </SafeAreaProvider>
     );
 }

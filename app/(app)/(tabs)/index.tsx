@@ -14,9 +14,11 @@ import { QuartierChip } from '../../../src/components/ui/QuartierChip';
 import { EmptyState } from '../../../src/components/ui/EmptyState';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../src/constants/theme';
 import { ProprieteAvecPhotos } from '../../../src/types/database.types';
+import { useTranslation } from '../../../src/i18n/useTranslation';
 
 export default function HomeScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const {
         properties,
         quartiers,
@@ -62,7 +64,7 @@ export default function HomeScreen() {
                     <Ionicons name="search" size={20} color={COLORS.textSecondary} style={{ marginRight: 8 }} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Rechercher un quartier, titre..."
+                        placeholder={t('home.search_placeholder')}
                         placeholderTextColor={COLORS.textSecondary}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -89,7 +91,7 @@ export default function HomeScreen() {
                     contentContainerStyle={styles.quartierContentContainer}
                 >
                     <QuartierChip
-                        label="Tous"
+                        label={t('common.all')}
                         isActive={!filters.id_quartier}
                         onPress={() => handleQuartierSelect(undefined)}
                     />
@@ -107,7 +109,7 @@ export default function HomeScreen() {
             {/* Result Counter */}
             <View style={styles.resultCounterContainer}>
                 <Text style={styles.resultCounterText}>
-                    {isLoading ? 'Chargement...' : `${properties.length} logements disponibles`}
+                    {isLoading ? t('common.loading') : t(properties.length > 1 ? 'home.results_count_plural' : 'home.results_count', { count: properties.length })}
                 </Text>
             </View>
         </View>
@@ -120,8 +122,8 @@ export default function HomeScreen() {
             {/* Fixed Header */}
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.logoText}>InzuHub</Text>
-                    <Text style={styles.subtitleText}>Gisenyi, Rwanda</Text>
+                    <Text style={styles.logoText}>{t('home.title')}</Text>
+                    <Text style={styles.subtitleText}>{t('home.subtitle')}</Text>
                 </View>
                 <TouchableOpacity style={styles.avatarContainer}>
                     {profile?.avatar_url ? (
@@ -151,9 +153,9 @@ export default function HomeScreen() {
                 ListEmptyComponent={
                     !isLoading ? (
                         <EmptyState
-                            title="Aucun logement trouvé"
-                            subtitle="Essayez de modifier vos filtres ou revenez plus tard"
-                            actionLabel="Réinitialiser les filtres"
+                            title={t('home.no_results_title')}
+                            subtitle={t('home.no_results_subtitle')}
+                            actionLabel={t('home.reset_filters')}
                             onAction={resetFilters}
                         />
                     ) : null

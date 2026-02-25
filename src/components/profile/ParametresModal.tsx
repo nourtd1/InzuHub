@@ -5,6 +5,8 @@ import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants/them
 import { useAuth } from '../../hooks/useAuth';
 import { profileService } from '../../services/profileService';
 import { supabase } from '../../lib/supabase';
+import LanguageSelector from '../ui/LanguageSelector';
+import { useTranslation, LANGUAGES } from '../../i18n/useTranslation';
 
 const { height } = Dimensions.get('window');
 
@@ -17,6 +19,9 @@ export default function ParametresModal({ visible, onClose }: ParametresModalPro
     const { user, signOut } = useAuth();
     const [pushEnabled, setPushEnabled] = useState(true);
     const [themeDark, setThemeDark] = useState(false);
+    const [languageModalVisible, setLanguageModalVisible] = useState(false);
+    const { t, i18n } = useTranslation();
+    const currentLang = LANGUAGES.find(l => l.code === i18n.language) || LANGUAGES[0];
 
     const handleResetPassword = () => {
         if (!user?.email) return;
@@ -85,12 +90,12 @@ export default function ParametresModal({ visible, onClose }: ParametresModalPro
 
                     <ScrollView contentContainerStyle={styles.content}>
                         {/* Section Compte */}
-                        <Text style={styles.sectionTitle}>Compte</Text>
+                        <Text style={styles.sectionTitle}>{t('profile.settings')}</Text>
 
                         <View style={styles.itemRow}>
                             <View style={styles.itemLeft}>
                                 <MaterialIcons name="notifications" size={24} color={COLORS.primary} style={styles.itemIcon} />
-                                <Text style={styles.itemLabel}>Notifications push</Text>
+                                <Text style={styles.itemLabel}>{t('profile.notifications')}</Text>
                             </View>
                             <Switch
                                 value={pushEnabled}
@@ -100,12 +105,26 @@ export default function ParametresModal({ visible, onClose }: ParametresModalPro
                         </View>
                         <View style={styles.divider} />
 
+                        <TouchableOpacity style={styles.itemRow} onPress={() => setLanguageModalVisible(true)}>
+                            <View style={styles.itemLeft}>
+                                <Ionicons name="earth" size={24} color={COLORS.primary} style={styles.itemIcon} />
+                                <Text style={styles.itemLabel}>{t('profile.language')}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ color: COLORS.textSecondary, marginRight: 8 }}>
+                                    {currentLang.flag} {currentLang.nativeLabel}
+                                </Text>
+                                <MaterialIcons name="chevron-right" size={24} color={COLORS.textSecondary} />
+                            </View>
+                        </TouchableOpacity>
+                        <View style={styles.divider} />
+
                         <View style={styles.itemRow}>
                             <View style={styles.itemLeft}>
                                 <MaterialIcons name="dark-mode" size={24} color={COLORS.primary} style={styles.itemIcon} />
                                 <View>
-                                    <Text style={styles.itemLabel}>Thème sombre</Text>
-                                    <Text style={styles.subLabel}>Bientôt disponible</Text>
+                                    <Text style={styles.itemLabel}>{t('profile.dark_mode')}</Text>
+                                    <Text style={styles.subLabel}>{t('common.soon')}</Text>
                                 </View>
                             </View>
                             <Switch
@@ -122,7 +141,7 @@ export default function ParametresModal({ visible, onClose }: ParametresModalPro
                         <TouchableOpacity style={styles.itemRow} onPress={handleResetPassword}>
                             <View style={styles.itemLeft}>
                                 <MaterialIcons name="lock-reset" size={24} color={COLORS.primary} style={styles.itemIcon} />
-                                <Text style={styles.itemLabel}>Changer le mot de passe</Text>
+                                <Text style={styles.itemLabel}>{t('profile.change_password')}</Text>
                             </View>
                             <MaterialIcons name="chevron-right" size={24} color={COLORS.textSecondary} />
                         </TouchableOpacity>
@@ -133,16 +152,16 @@ export default function ParametresModal({ visible, onClose }: ParametresModalPro
                         <TouchableOpacity style={styles.itemRow} onPress={() => Linking.openURL('https://example.com/cgu')}>
                             <View style={styles.itemLeft}>
                                 <MaterialIcons name="description" size={24} color={COLORS.primary} style={styles.itemIcon} />
-                                <Text style={styles.itemLabel}>Conditions d'utilisation</Text>
+                                <Text style={styles.itemLabel}>{t('profile.terms')}</Text>
                             </View>
                             <MaterialIcons name="chevron-right" size={24} color={COLORS.textSecondary} />
                         </TouchableOpacity>
                         <View style={styles.divider} />
 
-                        <TouchableOpacity style={styles.itemRow} onPress={() => Linking.openURL('https://example.com/privacy')}>
+                        <TouchableOpacity style={styles.itemRow} onPress={() => Linking.openURL('https://www.privacypolicies.com/live/7ffeaaff-93c3-49e8-95b3-c0ad146864a4')}>
                             <View style={styles.itemLeft}>
                                 <MaterialIcons name="privacy-tip" size={24} color={COLORS.primary} style={styles.itemIcon} />
-                                <Text style={styles.itemLabel}>Politique de confidentialité</Text>
+                                <Text style={styles.itemLabel}>{t('profile.privacy')}</Text>
                             </View>
                             <MaterialIcons name="chevron-right" size={24} color={COLORS.textSecondary} />
                         </TouchableOpacity>
@@ -153,11 +172,15 @@ export default function ParametresModal({ visible, onClose }: ParametresModalPro
                         <TouchableOpacity style={styles.itemRow} onPress={handleDeleteAccount}>
                             <View style={styles.itemLeft}>
                                 <MaterialIcons name="delete-forever" size={24} color={COLORS.danger} style={styles.itemIcon} />
-                                <Text style={[styles.itemLabel, { color: COLORS.danger }]}>Supprimer mon compte</Text>
+                                <Text style={[styles.itemLabel, { color: COLORS.danger }]}>{t('profile.delete_account')}</Text>
                             </View>
                         </TouchableOpacity>
 
                     </ScrollView>
+                    <LanguageSelector
+                        visible={languageModalVisible}
+                        onClose={() => setLanguageModalVisible(false)}
+                    />
                 </View>
             </View>
         </Modal>

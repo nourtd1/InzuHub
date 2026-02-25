@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePostLocationStep } from '../../../src/hooks/usePostLocationStep';
 import { usePostPropertyStore } from '../../../src/store/PostPropertyStore';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../../src/constants/theme';
@@ -16,6 +17,7 @@ export default function PostLocationStep() {
     const router = useRouter();
     const store = usePostPropertyStore(); // needed for pure read in summary and others
     const progressAnim = useRef(new Animated.Value(50)).current;
+    const insets = useSafeAreaInsets();
 
     const {
         id_quartier, description, nombre_chambres, nombre_salons,
@@ -252,7 +254,7 @@ export default function PostLocationStep() {
 
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
                 <TouchableOpacity
                     style={[styles.publishBtn, (!isStepValid || isPublishing) && { opacity: 0.4 }]}
                     disabled={!isStepValid || isPublishing}
@@ -557,7 +559,6 @@ const styles = StyleSheet.create({
     },
     footer: {
         padding: SPACING.lg,
-        paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.lg,
         backgroundColor: COLORS.surface,
         borderTopWidth: 1,
         borderTopColor: COLORS.border,

@@ -5,6 +5,7 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../src/constants/theme';
 import { useVisiteDetail } from '../../../src/hooks/useVisiteDetail';
 import { formatPrix } from '../../../src/utils/formatters';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../../../src/components/ui/Avatar';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -25,6 +26,7 @@ export default function VisiteDetailScreen() {
         addToCalendar,
         shareVisite
     } = useVisiteDetail(id as string);
+    const insets = useSafeAreaInsets();
 
     const pulseAnim = useRef(new Animated.Value(timeUntilVisite?.includes('C\'est aujourd\'hui') ? 1.2 : 1)).current;
 
@@ -120,7 +122,7 @@ export default function VisiteDetailScreen() {
     return (
         <View style={styles.container}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, 50) }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerIconBtn}>
                     <MaterialIcons name="arrow-back" size={24} color={COLORS.textPrimary} />
                 </TouchableOpacity>
@@ -246,7 +248,7 @@ export default function VisiteDetailScreen() {
             </ScrollView>
 
             {/* Bottom Actions */}
-            <View style={styles.bottomBar}>
+            <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 34) }]}>
                 {visite.statut === 'confirmee' && isVisiteFuture && (
                     <View style={{ width: '100%' }}>
                         <TouchableOpacity style={[styles.mainBtn, styles.mainBtnOutline]} onPress={addToCalendar}>

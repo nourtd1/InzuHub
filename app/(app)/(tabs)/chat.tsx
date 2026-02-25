@@ -13,11 +13,13 @@ import { ConversationListItem } from '../../../src/services/conversationService'
 import ConversationItem from '../../../src/components/chat/ConversationItem';
 import SwipeableConversationItem from '../../../src/components/chat/SwipeableConversationItem';
 import EmptyStateChat from '../../../src/components/chat/EmptyStateChat';
+import { useTranslation } from '../../../src/i18n/useTranslation';
 
 export default function ChatListScreen() {
     const { user, profile } = useAuth();
     const { conversations, isRefreshing, refresh, deleteConversation } = useConversations();
     const [searchQuery, setSearchQuery] = useState('');
+    const { t } = useTranslation();
 
     const filteredConversations = useMemo(() => {
         if (!searchQuery.trim()) return conversations;
@@ -65,7 +67,7 @@ export default function ChatListScreen() {
                 <MaterialIcons name="search" size={20} color={COLORS.textSecondary} />
                 <TextInput
                     style={styles.searchInput}
-                    placeholder="Rechercher une conversation..."
+                    placeholder={t('chat.search_placeholder')}
                     placeholderTextColor={COLORS.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -86,8 +88,10 @@ export default function ChatListScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>InzuChat</Text>
-                <Text style={styles.subtitle}>{conversations.length} conversation(s) active(s)</Text>
+                <Text style={styles.title}>{t('chat.title')}</Text>
+                <Text style={styles.subtitle}>
+                    {t(conversations.length > 1 ? 'chat.active_count_plural' : 'chat.active_count', { count: conversations.length })}
+                </Text>
             </View>
 
             {renderHeader()}
@@ -106,7 +110,7 @@ export default function ChatListScreen() {
                 )}
                 renderSectionHeader={({ section: { title } }) => (
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionHeaderText}>{getPeriodLabel(title as any)}</Text>
+                        <Text style={styles.sectionHeaderText}>{t(`chat.periods.${title}`)}</Text>
                     </View>
                 )}
                 onRefresh={refresh}
@@ -122,7 +126,7 @@ export default function ChatListScreen() {
                     onPress={() => router.push('/(app)/(tabs)/')}
                 >
                     <MaterialIcons name="search" size={20} color={COLORS.surface} style={styles.fabIcon} />
-                    <Text style={styles.fabText}>Chercher un logement</Text>
+                    <Text style={styles.fabText}>{t('chat.search_property')}</Text>
                 </TouchableOpacity>
             )}
         </View>
