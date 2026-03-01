@@ -4,11 +4,17 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
+    const [emailOrPhone, setEmailOrPhone] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+
+    // Convertir numéro en email fictif (même logique que l'app mobile)
+    const phoneToEmail = (phone: string): string => {
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        return `${cleanPhone}@inzuhub.rw`;
+    };
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -16,6 +22,10 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
+            // Détecter si c'est un numéro ou un email
+            const isPhone = /^[0-9\s\-\+\(\)]+$/.test(emailOrPhone);
+            const email = isPhone ? phoneToEmail(emailOrPhone) : emailOrPhone;
+
             const { data, error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -63,18 +73,18 @@ export default function LoginPage() {
                     <div className="rounded-md shadow-sm -space-y-px">
                         <div className="mb-4">
                             <label htmlFor="email-address" className="sr-only">
-                                Adresse Email
+                                Numéro de téléphone ou Email
                             </label>
                             <input
                                 id="email-address"
                                 name="email"
-                                type="email"
-                                autoComplete="email"
+                                type="text"
+                                autoComplete="username"
                                 required
                                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                                placeholder="Adresse email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Numéro de téléphone ou email"
+                                value={emailOrPhone}
+                                onChange={(e) => setEmailOrPhone(e.target.value)}
                             />
                         </div>
                         <div>

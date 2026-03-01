@@ -1,14 +1,14 @@
 import React, { ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCheck, Flag, Home, LogOut, CheckCircle, Clock } from 'lucide-react';
+import { NavLink, useNavigate, Outlet } from 'react-router-dom';
+import { LayoutDashboard, Users, UserCheck, Flag, Home, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
-export default function Layout({ children }: { children?: ReactNode }) {
+export default function Layout() {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // Realtime badge mockup values - normally wired to `useSignalements` and `useKycAdmin` hooks
+    // Realtime badge mockup values
     const [kycPendingCount, setKycPendingCount] = React.useState(0);
     const [reportsPendingCount, setReportsPendingCount] = React.useState(0);
 
@@ -18,7 +18,6 @@ export default function Layout({ children }: { children?: ReactNode }) {
     };
 
     React.useEffect(() => {
-        // Initial fetches
         const fetchCounts = async () => {
             const { count: kycCount } = await supabase.from('kyc_demandes').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente');
             const { count: repCount } = await supabase.from('signalements').select('*', { count: 'exact', head: true }).eq('etat_traitement', 'en_attente');
@@ -27,7 +26,6 @@ export default function Layout({ children }: { children?: ReactNode }) {
         };
         fetchCounts();
 
-        // Setup real-time
         const subKyc = supabase.channel('admin-kyc-layout')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_demandes' }, (payload) => {
                 fetchCounts();
@@ -80,9 +78,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
                 {/* Top Header */}
                 <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
-                    <div>
-                        {/* Can put dynamic title here using context if needed */}
-                    </div>
+                    <div></div>
                     <div className="flex items-center space-x-4">
                         <div className="text-sm text-right">
                             <p className="font-semibold text-gray-700">Admin : {user?.nom_complet?.split(' ')[0] || 'Inconnu'} ▼</p>
@@ -100,7 +96,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
 
                 {/* Page Content */}
                 <div className="flex-1 overflow-auto p-6">
-                    {children}
+                    <Outlet />
                 </div>
             </main>
         </div>

@@ -3,27 +3,26 @@ ADD COLUMN IF NOT EXISTS est_admin BOOLEAN DEFAULT FALSE;
 -- L'admin peut tout lire
 CREATE POLICY "Admin lecture totale" ON utilisateurs FOR
 SELECT USING (
-        auth.uid() IN (
-            SELECT id_utilisateur
-            FROM utilisateurs
-            WHERE est_admin = TRUE
-        )
+        auth.uid() = id_utilisateur 
+        OR est_admin = TRUE
     );
 -- L'admin peut mettre à jour le statut KYC
 CREATE POLICY "Admin update kyc" ON kyc_demandes FOR
 UPDATE USING (
-        auth.uid() IN (
-            SELECT id_utilisateur
+        EXISTS (
+            SELECT 1
             FROM utilisateurs
-            WHERE est_admin = TRUE
+            WHERE id_utilisateur = auth.uid()
+            AND est_admin = TRUE
         )
     );
 -- L'admin peut supprimer des annonces
 CREATE POLICY "Admin delete proprietes" ON proprietes FOR DELETE USING (
-    auth.uid() IN (
-        SELECT id_utilisateur
+    EXISTS (
+        SELECT 1
         FROM utilisateurs
-        WHERE est_admin = TRUE
+        WHERE id_utilisateur = auth.uid()
+        AND est_admin = TRUE
     )
 );
 -- Vue admin pour les stats globales
@@ -45,7 +44,7 @@ SELECT (
     (
         SELECT COUNT(*)
         FROM utilisateurs
-        WHERE statut_verification = TRUE
+        WHERE statut_verification = 'approuve'
     )::INTEGER AS utilisateurs_verifies,
     (
         SELECT COUNT(*)

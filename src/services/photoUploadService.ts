@@ -31,25 +31,41 @@ export const photoUploadService = {
         const finalUrls: string[] = [];
 
         for (const tempPath of tempPaths) {
-            const fileName = tempPath.split('/').pop();
-            const finalPath = `${propertyId}/${fileName}`;
+            try {
+                // Vérifier si le fichier existe avant de le déplacer
+                const { data: existingFile, error: checkError } = await supabase.storage
+                    .from('property-photos')
+                    .list(tempPath.substring(0, tempPath.lastIndexOf('/')), {
+                        search: tempPath.split('/').pop()
+                    });
 
-            const { data, error } = await supabase.storage
-                .from('property-photos')
-                .move(tempPath, finalPath);
+                if (checkError || !existingFile || existingFile.length === 0) {
+                    console.warn(`Photo temp introuvable, ignorée: ${tempPath}`);
+                    continue;
+                }
 
-            if (error) {
-                console.error(`Erreur déplacement photo ${tempPath} vers ${finalPath}`, error);
-                // We could skip or throw. For now, we continue but don't add to final urls if failed.
+                const fileName = tempPath.split('/').pop();
+                const finalPath = `${propertyId}/${fileName}`;
+
+                const { data, error } = await supabase.storage
+                    .from('property-photos')
+                    .move(tempPath, finalPath);
+
+                if (error) {
+                    console.error(`Erreur déplacement photo ${tempPath} vers ${finalPath}`, error);
+                    continue;
+                }
+
+                // Récupérer l'URL publique
+                const { data: { publicUrl } } = supabase.storage
+                    .from('property-photos')
+                    .getPublicUrl(finalPath);
+
+                finalUrls.push(publicUrl);
+            } catch (err) {
+                console.error(`Exception lors du déplacement de ${tempPath}:`, err);
                 continue;
             }
-
-            // Récupérer l'URL publique
-            const { data: { publicUrl } } = supabase.storage
-                .from('property-photos')
-                .getPublicUrl(finalPath);
-
-            finalUrls.push(publicUrl);
         }
 
         return finalUrls;
