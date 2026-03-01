@@ -12,6 +12,7 @@ export interface ProfileStats {
     visitesConfirmees: number;
     visitesPrecedentes: number;
     conversationsActives: number;
+    favoris?: number;
 }
 
 export const profileService = {
@@ -97,6 +98,9 @@ export const profileService = {
 
             const { count: convCount } = await supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('id_locataire', userId);
             stats.conversationsActives = convCount || 0;
+
+            const { count: favCount } = await supabase.from('favoris').select('*', { count: 'exact', head: true }).eq('id_utilisateur', userId);
+            stats.favoris = favCount || 0;
         }
 
         return stats;

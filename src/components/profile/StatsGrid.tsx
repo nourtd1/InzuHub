@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants/theme';
 import { ProfileStats } from '../../services/profileService';
 
@@ -9,6 +10,8 @@ interface StatsGridProps {
 }
 
 export default function StatsGrid({ stats, role }: StatsGridProps) {
+    const router = useRouter();
+
     if (role === 'proprietaire') {
         return (
             <View style={styles.gridContainer}>
@@ -33,13 +36,13 @@ export default function StatsGrid({ stats, role }: StatsGridProps) {
             </View>
             <View style={styles.row}>
                 <StatCard icon="✅" finalValue={stats.visitesConfirmees} label="Confirmées" />
-                <StatCard icon="🏠" finalValue={0} label="Favoris*" subLabel="Bientôt" />
+                <StatCard icon="❤️" finalValue={stats.favoris || 0} label="Favoris" onPress={() => router.push('/(app)/favorites')} />
             </View>
         </View>
     );
 }
 
-const StatCard = ({ icon, finalValue, label, subLabel }: { icon: string, finalValue: number, label: string, subLabel?: string }) => {
+const StatCard = ({ icon, finalValue, label, subLabel, onPress }: { icon: string, finalValue: number, label: string, subLabel?: string, onPress?: () => void }) => {
     // Simple countUp effect simulation
     const countRender = finalValue; // Using native Animated on text values is complex without reanimated.
     // We will simulate it via standard local state if true countup is strictly needed, but let's keep it simple or use a basic interval
@@ -64,14 +67,28 @@ const StatCard = ({ icon, finalValue, label, subLabel }: { icon: string, finalVa
         requestAnimationFrame(animate);
     }, [finalValue]);
 
-    return (
-        <View style={styles.card}>
+    const inner = (
+        <>
             <View style={styles.cardHeader}>
                 <Text style={styles.icon}>{icon}</Text>
                 <Text style={styles.value}>{displayVal}</Text>
             </View>
             <Text style={styles.label}>{label}</Text>
             {subLabel && <Text style={styles.subLabel}>{subLabel}</Text>}
+        </>
+    );
+
+    if (onPress) {
+        return (
+            <TouchableOpacity style={styles.card} onPress={onPress}>
+                {inner}
+            </TouchableOpacity>
+        );
+    }
+
+    return (
+        <View style={styles.card}>
+            {inner}
         </View>
     );
 };

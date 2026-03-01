@@ -139,6 +139,12 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
 
+                    {stats && stats.totalAvis !== undefined && stats.totalAvis > 0 && typeof stats.note_moyenne === 'number' && (
+                        <View style={styles.statsBadge}>
+                            <Text style={styles.statsBadgeText}>★ {stats.note_moyenne} ({stats.totalAvis} avis)</Text>
+                        </View>
+                    )}
+
                     <View style={[styles.roleBadge, { backgroundColor: `${roleColor}1A` }]}>
                         <Text style={[styles.roleText, { color: roleColor }]}>{roleLabel}</Text>
                     </View>
@@ -278,6 +284,14 @@ const styles = StyleSheet.create({
         fontSize: TYPOGRAPHY.fontSizeLG,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
+    },
+    statsBadge: {
+        marginBottom: 8,
+    },
+    statsBadgeText: {
+        fontSize: TYPOGRAPHY.fontSizeSM,
+        color: COLORS.warning,
+        fontWeight: 'bold',
     },
     roleBadge: {
         paddingHorizontal: 12,

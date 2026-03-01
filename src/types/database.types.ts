@@ -406,6 +406,118 @@ export interface Database {
                     }
                 ]
             }
+            favoris: {
+                Row: {
+                    id_favori: string
+                    id_utilisateur: string
+                    id_propriete: string
+                    date_ajout: string
+                }
+                Insert: {
+                    id_favori?: string
+                    id_utilisateur: string
+                    id_propriete: string
+                    date_ajout?: string
+                }
+                Update: {
+                    id_favori?: string
+                    id_utilisateur?: string
+                    id_propriete?: string
+                    date_ajout?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "favoris_id_utilisateur_fkey"
+                        columns: ["id_utilisateur"]
+                        isOneToOne: false
+                        referencedRelation: "utilisateurs"
+                        referencedColumns: ["id_utilisateur"]
+                    },
+                    {
+                        foreignKeyName: "favoris_id_propriete_fkey"
+                        columns: ["id_propriete"]
+                        isOneToOne: false
+                        referencedRelation: "proprietes"
+                        referencedColumns: ["id_propriete"]
+                    }
+                ]
+            }
+            avis: {
+                Row: {
+                    id_avis: string
+                    id_auteur: string
+                    id_proprietaire: string
+                    id_visite: string
+                    id_propriete: string
+                    note: 1 | 2 | 3 | 4 | 5
+                    commentaire: string | null
+                    date_avis: string
+                }
+                Insert: {
+                    id_avis?: string
+                    id_auteur: string
+                    id_proprietaire: string
+                    id_visite: string
+                    id_propriete: string
+                    note: 1 | 2 | 3 | 4 | 5
+                    commentaire?: string | null
+                    date_avis?: string
+                }
+                Update: {
+                    id_avis?: string
+                    id_auteur?: string
+                    id_proprietaire?: string
+                    id_visite?: string
+                    id_propriete?: string
+                    note?: 1 | 2 | 3 | 4 | 5
+                    commentaire?: string | null
+                    date_avis?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "avis_id_auteur_fkey"
+                        columns: ["id_auteur"]
+                        isOneToOne: false
+                        referencedRelation: "utilisateurs"
+                        referencedColumns: ["id_utilisateur"]
+                    },
+                    {
+                        foreignKeyName: "avis_id_proprietaire_fkey"
+                        columns: ["id_proprietaire"]
+                        isOneToOne: false
+                        referencedRelation: "utilisateurs"
+                        referencedColumns: ["id_utilisateur"]
+                    },
+                    {
+                        foreignKeyName: "avis_id_visite_fkey"
+                        columns: ["id_visite"]
+                        isOneToOne: true
+                        referencedRelation: "visites"
+                        referencedColumns: ["id_visite"]
+                    },
+                    {
+                        foreignKeyName: "avis_id_propriete_fkey"
+                        columns: ["id_propriete"]
+                        isOneToOne: false
+                        referencedRelation: "proprietes"
+                        referencedColumns: ["id_propriete"]
+                    }
+                ]
+            }
+        }
+        Views: {
+            stats_proprietaires: {
+                Row: {
+                    id_proprietaire: string
+                    total_avis: number
+                    note_moyenne: number
+                    cinq_etoiles: number
+                    quatre_etoiles: number
+                    trois_etoiles: number
+                    deux_etoiles: number
+                    une_etoile: number
+                }
+            }
         }
     }
 }
@@ -425,7 +537,7 @@ export type ProprieteAvecPhotos = Propriete & { photos: Photo[] }
 export type ProprieteComplete = Propriete & {
     photos: Photo[]
     quartier: Quartier
-    proprietaire: Pick<Utilisateur, 'nom_complet' | 'numero_telephone' | 'statut_verification' | 'avatar_url'>
+    proprietaire: Pick<Utilisateur, 'nom_complet' | 'numero_telephone' | 'statut_verification' | 'avatar_url' | 'date_inscription'>
 }
 export type ConversationAvecDetails = Conversation & {
     propriete: Pick<Propriete, 'titre' | 'prix_mensuel' | 'id_propriete' | 'id_utilisateur'> & {
@@ -445,3 +557,45 @@ export type VisiteComplete = Visite & {
 }
 
 export type KycDemande = Database['public']['Tables']['kyc_demandes']['Row']
+
+export interface Favori {
+    id_favori: string
+    id_utilisateur: string
+    id_propriete: string
+    date_ajout: string
+}
+
+export type FavoriAvecPropriete = Favori & {
+    propriete: ProprieteAvecPhotos & {
+        quartier: Quartier
+        proprietaire: Pick<Utilisateur, 'nom_complet' | 'statut_verification'>
+    }
+}
+
+export type Avis = Database['public']['Tables']['avis']['Row']
+export type StatsProprietaire = Database['public']['Views']['stats_proprietaires']['Row']
+
+export type AvisComplet = Avis & {
+    auteur: Pick<Utilisateur, 'id_utilisateur' | 'nom_complet' | 'avatar_url'>
+    propriete: Pick<Propriete, 'titre'>
+}
+
+export interface Alerte {
+    id_alerte: string
+    id_utilisateur: string
+    nom_alerte: string
+    id_quartier: string | null
+    prix_max: number | null
+    prix_min: number | null
+    nombre_chambres: number | null
+    has_eau: boolean | null
+    has_electricite: boolean | null
+    est_active: boolean
+    date_creation: string
+    derniere_notif: string | null
+}
+
+export type AlerteAvecQuartier = Alerte & {
+    quartier: Quartier | null
+}
+

@@ -15,6 +15,8 @@ import { EmptyState } from '../../../src/components/ui/EmptyState';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../src/constants/theme';
 import { ProprieteAvecPhotos } from '../../../src/types/database.types';
 import { useTranslation } from '../../../src/i18n/useTranslation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAlertes } from '../../../src/hooks/useAlertes';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -35,6 +37,27 @@ export default function HomeScreen() {
 
     const { profile } = useAuth();
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+    const { alertes } = useAlertes();
+    const [showBanner, setShowBanner] = useState(false);
+
+    React.useEffect(() => {
+        const checkBanner = async () => {
+            if (profile?.role === 'locataire' && alertes.length === 0) {
+                const dismissed = await AsyncStorage.getItem('inzuhub_alert_banner_dismissed');
+                if (dismissed !== 'true') {
+                    setShowBanner(true);
+                }
+            } else {
+                setShowBanner(false);
+            }
+        };
+        checkBanner();
+    }, [profile, alertes]);
+
+    const dismissBanner = async () => {
+        setShowBanner(false);
+        await AsyncStorage.setItem('inzuhub_alert_banner_dismissed', 'true');
+    };
 
     const handlePropertyPress = (id: string) => {
         // Navigate to property details
@@ -112,6 +135,22 @@ export default function HomeScreen() {
                     {isLoading ? t('common.loading') : t(properties.length > 1 ? 'home.results_count_plural' : 'home.results_count', { count: properties.length })}
                 </Text>
             </View>
+
+            {/* Banner Alert */}
+            {showBanner && (
+                <View style={styles.bannerAlert}>
+                    <View style={styles.bannerHeader}>
+                        <Text style={styles.bannerTitle}>{t('alerts.banner_title')}</Text>
+                        <TouchableOpacity onPress={dismissBanner}>
+                            <Ionicons name="close" size={20} color={COLORS.warning} />
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={styles.bannerSubtitle}>{t('alerts.banner_subtitle')}</Text>
+                    <TouchableOpacity onPress={() => router.push('/alertes')} style={styles.bannerCta}>
+                        <Text style={styles.bannerCtaText}>{t('alerts.banner_cta')}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 
@@ -295,4 +334,38 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         fontSize: TYPOGRAPHY.fontSizeSM,
     },
+    bannerAlert: {
+        backgroundColor: `${COLORS.warning}1A`, // 10%
+        borderColor: COLORS.warning,
+        borderWidth: 1,
+        borderRadius: BORDER_RADIUS.md,
+        padding: SPACING.md,
+        marginHorizontal: SPACING.md,
+        marginBottom: SPACING.sm,
+    },
+    bannerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    bannerTitle: {
+        fontSize: TYPOGRAPHY.fontSizeMD,
+        fontWeight: 'bold',
+        color: COLORS.warning,
+        flex: 1,
+    },
+    bannerSubtitle: {
+        fontSize: TYPOGRAPHY.fontSizeSM,
+        color: COLORS.textPrimary,
+        marginTop: SPACING.xs,
+        marginBottom: SPACING.sm,
+    },
+    bannerCta: {
+        alignSelf: 'flex-start',
+    },
+    bannerCtaText: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        fontSize: TYPOGRAPHY.fontSizeSM,
+    }
 });

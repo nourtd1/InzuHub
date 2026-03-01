@@ -4,6 +4,8 @@ import { Slot, SplashScreen, Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { AuthProvider } from '../src/store/AuthContext';
 import { UnreadProvider } from '../src/store/UnreadContext';
+import { FavorisProvider } from '../src/store/FavorisContext';
+import { ToastProvider } from '../src/store/ToastContext';
 import { useAuth } from '../src/hooks/useAuth';
 import { useFonts } from 'expo-font';
 import { View, ActivityIndicator } from 'react-native';
@@ -16,6 +18,7 @@ import { notificationService } from '../src/services/notificationService';
 import { supabase } from '../src/lib/supabase';
 import { KycDemande } from '../src/types/database.types';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -40,13 +43,17 @@ function RootLayoutNav() {
 
         const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
             const data = response.notification.request.content.data;
-            if (data?.visiteId) {
+            if (data?.type === 'new_property_alert' && data?.propertyId) {
+                router.push(`/property/${data.propertyId}`);
+            } else if (data?.visiteId) {
                 router.push(`/visite/${data.visiteId}`);
-            }
-            if (data?.conversationId) {
+            } else if (data?.conversationId) {
                 router.push(`/chat/${data.conversationId}`);
             }
         });
+
+        // Reset badge count on app open
+        Notifications.setBadgeCountAsync(0);
 
         return () => subscription.remove();
     }, [isAuthenticated, user?.id]);
@@ -131,12 +138,18 @@ export default function RootLayout() {
     }
 
     return (
-        <SafeAreaProvider>
-            <AuthProvider>
-                <UnreadProvider>
-                    <RootLayoutNav />
-                </UnreadProvider>
-            </AuthProvider>
-        </SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+                <ToastProvider>
+                    <AuthProvider>
+                        <FavorisProvider>
+                            <UnreadProvider>
+                                <RootLayoutNav />
+                            </UnreadProvider>
+                        </FavorisProvider>
+                    </AuthProvider>
+                </ToastProvider>
+            </SafeAreaProvider>
+        </GestureHandlerRootView>
     );
 }

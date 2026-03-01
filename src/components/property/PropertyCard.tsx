@@ -6,6 +6,7 @@ import { ProprieteAvecPhotos, Quartier, Utilisateur } from '../../types/database
 import { COLORS, SPACING, BORDER_RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { formatPrixMensuel, formatDateRelative } from '../../utils/formatters';
 import { useTranslation } from '../../i18n/useTranslation';
+import FavorisButton from '../ui/FavorisButton';
 
 interface PropertyCardProps {
     property: ProprieteAvecPhotos & {
@@ -86,6 +87,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress })
                     <View style={[styles.badge, styles.statusBadge, { backgroundColor: status.color }]}>
                         <Text style={styles.statusText}>{status.label}</Text>
                     </View>
+
+                    {/* Favoris Button */}
+                    <FavorisButton
+                        propertyId={property.id_propriete}
+                        size="sm"
+                        style={styles.favorisButton}
+                    />
 
                     {/* Verified Badge */}
                     {property.proprietaire.statut_verification && (
@@ -200,7 +208,12 @@ const styles = StyleSheet.create({
     },
     statusBadge: {
         top: SPACING.sm,
-        right: SPACING.sm,
+        left: SPACING.sm,
+    },
+    favorisButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
     },
     verifiedBadge: {
         top: SPACING.sm,

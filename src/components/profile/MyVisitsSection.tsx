@@ -6,6 +6,8 @@ import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants/them
 import { format, isFuture, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { router } from 'expo-router';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase';
 
 interface MyVisitsSectionProps {
     visits: VisiteComplete[];
@@ -74,9 +76,12 @@ const VisitListItem = ({ visit }: { visit: VisiteComplete }) => {
                     {isFutur ? (
                         <Text style={{ fontSize: 10, color: COLORS.secondary, fontWeight: 'bold' }}>✅ Confirmée</Text>
                     ) : (
-                        <Text style={{ fontSize: 10, color: visit.statut === 'annulee' ? COLORS.danger : COLORS.textSecondary, fontWeight: 'bold' }}>
-                            {visit.statut === 'annulee' ? '✗ Annulée' : '✓ Effectuée'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ fontSize: 10, color: visit.statut === 'annulee' ? COLORS.danger : COLORS.textSecondary, fontWeight: 'bold' }}>
+                                {visit.statut === 'annulee' ? '✗ Annulée' : '✓ Effectuée'}
+                            </Text>
+                            {visit.statut === 'confirmee' && <VisitReviewBadge visitId={visit.id_visite} dateStr={visit.date_visite} />}
+                        </View>
                     )}
                 </View>
                 <Text style={styles.itemMeta}>📍 {quartier}</Text>
@@ -203,3 +208,26 @@ const styles = StyleSheet.create({
         marginTop: 4,
     }
 });
+
+const VisitReviewBadge = ({ visitId, dateStr }: { visitId: string, dateStr: string }) => {
+    const { user } = useAuth();
+    const [status, setStatus] = React.useState<'loading' | 'none' | 'can_review' | 'rated'>('loading');
+
+    React.useEffect(() => {
+        if (!user || isFuture(new Date(dateStr))) {
+            setStatus('none');
+            return;
+        }
+
+        const check = async () => {
+            const { data } = await supabase.from('avis').select('id_avis').eq('id_visite', visitId).eq('id_auteur', user.id).maybeSingle();
+            if (data) setStatus('rated');
+            else setStatus('can_review');
+        };
+        check();
+    }, [visitId, user?.id, dateStr]);
+
+    if (status === 'can_review') return <Text style={{ fontSize: 10, color: COLORS.warning, fontWeight: 'bold', borderWidth: 1, borderColor: COLORS.warning, paddingHorizontal: 4, borderRadius: 4 }}>⭐ Noter</Text>;
+    if (status === 'rated') return <Text style={{ fontSize: 10, color: COLORS.secondary, fontWeight: 'bold' }}>⭐ Noté</Text>;
+    return null;
+};

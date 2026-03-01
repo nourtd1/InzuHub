@@ -26,6 +26,10 @@ import CaracteristiqueItem from '../../../src/components/property/Caracteristiqu
 import Avatar from '../../../src/components/ui/Avatar';
 import ReadMoreText from '../../../src/components/ui/ReadMoreText';
 import SignalementModal from '../../../src/components/property/SignalementModal';
+import FavorisButton from '../../../src/components/ui/FavorisButton';
+import { useAvis } from '../../../src/hooks/useAvis';
+import AvisCard from '../../../src/components/avis/AvisCard';
+import { useTranslation } from '../../../src/i18n/useTranslation';
 
 export default function PropertyDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,7 +37,7 @@ export default function PropertyDetailScreen() {
 
     const {
         property,
-        isLoading,
+        isLoading: isPropertyLoading,
         error,
         isOwnProperty,
         hasReported,
@@ -42,8 +46,16 @@ export default function PropertyDetailScreen() {
         handleReport
     } = usePropertyDetail(id as string);
 
+    const { avis, stats, refreshOwnerAvis, deleteMyAvis } = useAvis();
     const [isReportModalVisible, setIsReportModalVisible] = useState(false);
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
+
+    React.useEffect(() => {
+        if (property?.id_utilisateur) {
+            refreshOwnerAvis(property.id_utilisateur);
+        }
+    }, [property?.id_utilisateur]);
 
     const handleShare = async () => {
         if (!property) return;
@@ -67,7 +79,7 @@ export default function PropertyDetailScreen() {
         }
     };
 
-    if (isLoading) {
+    if (isPropertyLoading) {
         return (
             <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -106,9 +118,12 @@ export default function PropertyDetailScreen() {
                     <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
                         <MaterialIcons name="arrow-back" size={24} color={COLORS.textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-                        <MaterialIcons name="share" size={24} color={COLORS.textPrimary} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
+                        <FavorisButton propertyId={property.id_propriete} size="md" />
+                        <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+                            <MaterialIcons name="share" size={24} color={COLORS.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 <View style={styles.body}>
@@ -270,7 +285,22 @@ export default function PropertyDetailScreen() {
                         )}
                     </View>
 
-                    {/* SECTION 7 : SIGNALEMENT */}
+                    {/* SECTION 7 : AVIS */}
+                    {stats && stats.total_avis > 0 && (
+                        <View style={styles.reviewsSection}>
+                            <View style={styles.reviewsHeader}>
+                                <Text style={styles.reviewsTitle}>★ {stats.note_moyenne} ({t('reviews.total_reviews', { count: stats.total_avis })})</Text>
+                                <TouchableOpacity onPress={() => router.push({ pathname: '/owner-reviews/[id]', params: { id: property.id_utilisateur, nom: property.proprietaire?.nom_complet } })}>
+                                    <Text style={styles.seeAllReviews}>{t('common.see_all')}</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {avis.slice(0, 3).map(a => (
+                                <AvisCard key={a.id_avis} avis={a} currentUserId={user?.id} onDelete={() => deleteMyAvis(a.id_avis)} />
+                            ))}
+                        </View>
+                    )}
+
+                    {/* SECTION 8 : SIGNALEMENT */}
                     {!isOwnProperty && (
                         <View style={styles.reportSection}>
                             {hasReported ? (
@@ -596,6 +626,25 @@ const styles = StyleSheet.create({
         fontSize: TYPOGRAPHY.fontSizeSM,
         color: COLORS.textSecondary,
         marginBottom: SPACING.md,
+    },
+    reviewsSection: {
+        marginBottom: SPACING.xl,
+    },
+    reviewsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: SPACING.md,
+    },
+    reviewsTitle: {
+        fontSize: TYPOGRAPHY.fontSizeMD,
+        fontWeight: 'bold',
+        color: COLORS.textPrimary,
+    },
+    seeAllReviews: {
+        fontSize: TYPOGRAPHY.fontSizeSM,
+        color: COLORS.primary,
+        fontWeight: 'bold',
     },
     ownerActions: {
         flexDirection: 'row',

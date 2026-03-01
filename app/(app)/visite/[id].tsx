@@ -9,6 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../../../src/components/ui/Avatar';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuth } from '../../../src/hooks/useAuth';
+import { useAvis } from '../../../src/hooks/useAvis';
+import AvisModal from '../../../src/components/avis/AvisModal';
+import { useTranslation } from '../../../src/i18n/useTranslation';
 
 export default function VisiteDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +31,10 @@ export default function VisiteDetailScreen() {
         shareVisite
     } = useVisiteDetail(id as string);
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
+    const { user } = useAuth();
+    const { myAvis, canReview, checkReviewEligibility, submitAvis, isSubmitting, deleteMyAvis } = useAvis();
+    const [isAvisModalVisible, setAvisModalVisible] = useState(false);
 
     const pulseAnim = useRef(new Animated.Value(timeUntilVisite?.includes('C\'est aujourd\'hui') ? 1.2 : 1)).current;
 
@@ -42,6 +50,12 @@ export default function VisiteDetailScreen() {
             pulseAnim.setValue(1);
         }
     }, [timeUntilVisite]);
+
+    useEffect(() => {
+        if (user?.id && visite?.id_visite && visite.statut === 'confirmee' && new Date(visite.date_visite) < new Date() && isCurrentUserLocataire) {
+            checkReviewEligibility(user.id, visite.id_visite);
+        }
+    }, [user?.id, visite?.id_visite, visite?.statut, visite?.date_visite, isCurrentUserLocataire]);
 
     if (isLoading) {
         return (
@@ -136,6 +150,46 @@ export default function VisiteDetailScreen() {
                 {renderHero()}
 
                 <View style={styles.content}>
+                    {/* Review Banner for Locataire */}
+                    {canReview && !myAvis && (
+                        <View style={styles.reviewBanner}>
+                            <Text style={styles.reviewBannerTitle}>{t('reviews.leave_review_banner')}</Text>
+                            <Text style={styles.reviewBannerSub}>{t('reviews.leave_review_subtitle')}</Text>
+                            <TouchableOpacity style={styles.reviewCta} onPress={() => setAvisModalVisible(true)}>
+                                <Text style={styles.reviewCtaText}>{t('reviews.leave_review_cta')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {/* Existing Review */}
+                    {myAvis && (
+                        <View style={styles.existingReview}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={styles.reviewBannerTitle}>{t('reviews.your_review')}</Text>
+                                <TouchableOpacity onPress={() => {
+                                    Alert.alert(
+                                        t('reviews.delete_confirm'),
+                                        '',
+                                        [
+                                            { text: t('common.cancel'), style: 'cancel' },
+                                            { text: t('common.yes'), style: 'destructive', onPress: () => deleteMyAvis(myAvis.id_avis) }
+                                        ]
+                                    );
+                                }}>
+                                    <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                                </TouchableOpacity>
+                            </View>
+                            <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                                {[...Array(5)].map((_, i) => (
+                                    <Ionicons key={i} name={i < myAvis.note ? 'star' : 'star-outline'} size={16} color={COLORS.warning} />
+                                ))}
+                            </View>
+                            {myAvis.commentaire && (
+                                <Text style={styles.reviewComment}>"{myAvis.commentaire}"</Text>
+                            )}
+                        </View>
+                    )}
+
                     {/* Infos Visite */}
                     <View style={styles.card}>
                         <Text style={styles.sectionTitle}>📅 Date et heure</Text>
@@ -296,6 +350,16 @@ export default function VisiteDetailScreen() {
                     </View>
                 )}
             </View>
+            <AvisModal
+                isVisible={isAvisModalVisible}
+                visite={visite}
+                onClose={() => setAvisModalVisible(false)}
+                onSubmit={async (data) => {
+                    await submitAvis(data);
+                    setAvisModalVisible(false);
+                }}
+                isSubmitting={isSubmitting}
+            />
         </View>
     );
 }
@@ -569,5 +633,52 @@ const styles = StyleSheet.create({
         color: COLORS.danger,
         fontSize: TYPOGRAPHY.fontSizeMD,
         fontWeight: '500',
+    },
+    reviewBanner: {
+        backgroundColor: `${COLORS.primary}0D`,
+        borderColor: `${COLORS.primary}33`,
+        borderWidth: 1,
+        borderRadius: BORDER_RADIUS.lg,
+        padding: SPACING.md,
+        marginBottom: SPACING.md,
+    },
+    reviewBannerTitle: {
+        fontSize: TYPOGRAPHY.fontSizeMD,
+        fontWeight: 'bold',
+        color: COLORS.textPrimary,
+        marginBottom: 4,
+    },
+    reviewBannerSub: {
+        fontSize: TYPOGRAPHY.fontSizeSM,
+        color: COLORS.textSecondary,
+        marginBottom: SPACING.md,
+    },
+    reviewCta: {
+        alignSelf: 'flex-start',
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.primary,
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    reviewCtaText: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        fontSize: TYPOGRAPHY.fontSizeSM,
+    },
+    existingReview: {
+        backgroundColor: COLORS.surface,
+        borderColor: COLORS.border,
+        borderWidth: 1,
+        borderRadius: BORDER_RADIUS.lg,
+        padding: SPACING.md,
+        marginBottom: SPACING.md,
+    },
+    reviewComment: {
+        fontSize: TYPOGRAPHY.fontSizeMD,
+        color: COLORS.textSecondary,
+        marginTop: SPACING.xs,
+        fontStyle: 'italic',
     }
 });
