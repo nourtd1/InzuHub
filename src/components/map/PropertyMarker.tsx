@@ -12,7 +12,7 @@ export interface PropertyMarkerProps {
         proprietaire: Pick<Utilisateur, 'nom_complet' | 'statut_verification'>;
     };
     isSelected: boolean;
-    onPress: () => void;
+    onPress: (...args: any[]) => void;
 }
 
 export default function PropertyMarker({ property, isSelected, onPress }: PropertyMarkerProps) {

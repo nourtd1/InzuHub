@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getPublicUrl } from '../lib/supabase';
 import { Badge } from '../components/ui';
 import { Search } from 'lucide-react';
 
@@ -133,7 +133,7 @@ export default function UsersPage() {
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0 h-8 w-8">
                                                 {u.avatar_url ? (
-                                                    <img className="h-8 w-8 rounded-full" src={u.avatar_url} alt="" />
+                                                    <img className="h-8 w-8 rounded-full" src={getPublicUrl(u.avatar_url, 'avatars')} alt="" />
                                                 ) : (
                                                     <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs">
                                                         {u.nom_complet?.[0] || '?'}

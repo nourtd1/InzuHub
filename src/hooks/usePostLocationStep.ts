@@ -121,11 +121,19 @@ export function usePostLocationStep(): UsePostLocationStepReturn {
     const publishAnnonce = async () => {
         if (!user || !validate()) return;
 
+        // Check if all photos are finished uploading
+        const pendingUploads = store.photos.some(p => p.isUploading);
+        if (pendingUploads) {
+            Alert.alert("Attente d'upload", "Certaines photos sont encore en cours d'envoi. Veuillez patienter quelques secondes.");
+            return;
+        }
+
         setIsPublishing(true);
         setPublishStep(1);
         setPublishError(null);
 
         try {
+            console.log("Publishing: Step 1 (Creating property)...");
             // Etape 1 : Créer la propriété
             const property = await propertyService.createProperty({
                 id_utilisateur: user.id,
@@ -142,8 +150,9 @@ export function usePostLocationStep(): UsePostLocationStepReturn {
                 has_parking: store.has_parking,
                 latitude: store.latitude,
                 longitude: store.longitude,
-                statut: 'disponible' // Implicit or explicit depending on service
+                statut: 'disponible'
             });
+            console.log("Property created:", property.id_propriete);
 
             // Etape 2 : Photos
             setPublishStep(2);
@@ -157,22 +166,25 @@ export function usePostLocationStep(): UsePostLocationStepReturn {
             );
 
             // Etape 3 : Insert Photos in Base
-            for (let i = 0; i < finalUrls.length; i++) {
-                await supabase.from('photos').insert({
+            if (finalUrls.length > 0) {
+                const photosToInsert = finalUrls.map((url, index) => ({
                     id_propriete: property.id_propriete,
-                    url_photo: finalUrls[i],
-                    est_photo_principale: i === 0
-                });
+                    url_photo: url,
+                    est_photo_principale: index === 0
+                }));
+
+                const { error: insertError } = await supabase.from('photos').insert(photosToInsert as any);
+                if (insertError) throw insertError;
             }
 
             // SUCCESS
             setPublishStep(3);
             setTimeout(() => {
                 store.reset();
-                router.replace(`/property/${property.id_propriete}`);
-            }, 2500);
+                router.replace(`/(app)/property/${property.id_propriete}`);
+            }, 2000);
 
-        } catch (error) {
+        } catch (error: any) {
             setPublishStep(0);
             setIsPublishing(false);
             setPublishError(getErrorMessage(error));

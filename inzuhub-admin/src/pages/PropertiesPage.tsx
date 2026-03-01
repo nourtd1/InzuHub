@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getPublicUrl } from '../lib/supabase';
 import { Badge } from '../components/ui';
 
 export default function PropertiesPage() {
@@ -94,7 +94,7 @@ export default function PropertiesPage() {
                     <div key={p.id_propriete} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col group relative">
                         <div className="h-48 bg-gray-100 relative">
                             {p.photos && p.photos.length > 0 ? (
-                                <img src={p.photos[0].url_photo} alt="property" className="w-full h-full object-cover" />
+                                <img src={getPublicUrl(p.photos[0].url_photo)} alt="property" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="flex items-center justify-center h-full text-gray-400">Pas de photo</div>
                             )}
@@ -118,7 +118,7 @@ export default function PropertiesPage() {
                             </div>
 
                             <div className="absolute inset-0 bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-3 p-4">
-                                <button onClick={() => alert('Feature viewing not implemented in full')} className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">👁 Voir</button>
+                                <button onClick={() => alert(`Détails de l'annonce: ${p.titre}`)} className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">👁 Voir</button>
                                 <button onClick={() => handleSupprimer(p.id_propriete, p.titre)} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200">🗑 Supprimer</button>
                             </div>
                         </div>

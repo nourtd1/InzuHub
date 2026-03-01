@@ -217,7 +217,7 @@ export interface Database {
                     id_conversation: string
                     id_expediteur: string
                     contenu: string
-                    type: 'texte' | 'visite_proposee' | 'visite_confirmee'
+                    type: 'texte' | 'visite_proposee' | 'visite_confirmee' | 'visite_annulee'
                     date_envoi: string
                     lu: boolean
                 }
@@ -371,7 +371,7 @@ export interface Database {
                     url_selfie: string
                     statut: 'en_attente' | 'en_cours_review' | 'approuve' | 'rejete'
                     motif_rejet: string | null
-                    date_soumission: string
+                    date_creation: string
                     date_traitement: string | null
                 }
                 Insert: {
@@ -382,7 +382,7 @@ export interface Database {
                     url_selfie: string
                     statut?: 'en_attente' | 'en_cours_review' | 'approuve' | 'rejete'
                     motif_rejet?: string | null
-                    date_soumission?: string
+                    date_creation?: string
                     date_traitement?: string | null
                 }
                 Update: {
@@ -393,7 +393,7 @@ export interface Database {
                     url_selfie?: string
                     statut?: 'en_attente' | 'en_cours_review' | 'approuve' | 'rejete'
                     motif_rejet?: string | null
-                    date_soumission?: string
+                    date_creation?: string
                     date_traitement?: string | null
                 }
                 Relationships: [
@@ -527,8 +527,8 @@ export type Utilisateur = Database['public']['Tables']['utilisateurs']['Row']
 export type Propriete = Database['public']['Tables']['proprietes']['Row']
 export type Quartier = Database['public']['Tables']['quartiers']['Row']
 export type Photo = Database['public']['Tables']['photos']['Row']
-export type Conversation = Database['public']['Tables']['conversations']['Row']
-export type Message = Database['public']['Tables']['messages']['Row']
+export type DbConversation = Database['public']['Tables']['conversations']['Row']
+export type DbMessage = Database['public']['Tables']['messages']['Row']
 export type Visite = Database['public']['Tables']['visites']['Row']
 export type Signalement = Database['public']['Tables']['signalements']['Row']
 
@@ -539,17 +539,17 @@ export type ProprieteComplete = Propriete & {
     quartier: Quartier
     proprietaire: Pick<Utilisateur, 'nom_complet' | 'numero_telephone' | 'statut_verification' | 'avatar_url' | 'date_inscription'>
 }
-export type ConversationAvecDetails = Conversation & {
+export type ConversationAvecDetails = DbConversation & {
     propriete: Pick<Propriete, 'titre' | 'prix_mensuel' | 'id_propriete' | 'id_utilisateur'> & {
         quartier?: Pick<Quartier, 'nom_quartier'> | null
     }
     locataire: Pick<Utilisateur, 'nom_complet' | 'avatar_url' | 'id_utilisateur' | 'numero_telephone'>
     proprietaire: Pick<Utilisateur, 'nom_complet' | 'avatar_url' | 'id_utilisateur' | 'numero_telephone'>
-    dernier_message?: Pick<Message, 'contenu' | 'date_envoi' | 'lu'>
+    dernier_message?: Pick<DbMessage, 'contenu' | 'date_envoi' | 'lu'>
 }
 
 export type VisiteComplete = Visite & {
-    conversation: Conversation & {
+    conversation: DbConversation & {
         propriete: ProprieteComplete
         locataire: Pick<Utilisateur, 'id_utilisateur' | 'nom_complet' | 'numero_telephone' | 'avatar_url'>
         proprietaire: Pick<Utilisateur, 'id_utilisateur' | 'nom_complet' | 'numero_telephone' | 'avatar_url' | 'statut_verification'>
@@ -597,5 +597,65 @@ export interface Alerte {
 
 export type AlerteAvecQuartier = Alerte & {
     quartier: Quartier | null
+}
+
+// InzuChat Specific Types
+export interface Conversation {
+    id_conversation: string
+    id_locataire: string
+    id_proprietaire: string
+    id_propriete: string
+    derniere_activite: string
+}
+
+export interface VisiteMetadata {
+    date_visite: string       // format: "2026-03-15"
+    heure_visite: string      // format: "10:30"
+    id_visite?: string
+}
+
+export interface Message {
+    id_message: string
+    id_conversation: string
+    id_expediteur: string
+    contenu: string
+    type: 'texte' | 'visite_proposee' | 'visite_confirmee' | 'visite_annulee'
+    metadata: VisiteMetadata | null
+    lu: boolean
+    date_envoi: string
+}
+
+export type ConversationComplete = Conversation & {
+    locataire: {
+        id_utilisateur: string
+        nom_complet: string
+        avatar_url: string | null
+        statut_verification: boolean
+        numero_telephone: string
+    }
+    proprietaire: {
+        id_utilisateur: string
+        nom_complet: string
+        avatar_url: string | null
+        statut_verification: boolean
+        numero_telephone: string
+    }
+    propriete: {
+        id_propriete: string
+        titre: string
+        prix_mensuel: number
+        photos: { url_photo: string; est_photo_principale: boolean }[]
+        quartier: { nom_quartier: string }
+    }
+    dernier_message: Message | null
+    non_lus: number
+}
+
+export type MessageComplet = Message & {
+    expediteur: {
+        id_utilisateur: string
+        nom_complet: string
+        avatar_url: string | null
+    }
 }
 

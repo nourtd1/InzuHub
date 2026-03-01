@@ -1,228 +1,256 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { messageService, MessageAvecExpediteur } from '../services/messageService';
-import { visiteService } from '../services/visiteService';
-import { useAuth } from './useAuth';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { ConversationAvecDetails, Visite } from '../types/database.types';
-import { Alert } from 'react-native';
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { supabase } from '../lib/supabase'
+import { messageService } from '../services/messageService'
+import { conversationService } from '../services/conversationService'
+import { useAuth } from './useAuth'
+import { useToast } from '../store/ToastContext'
+import type { MessageComplet, VisiteMetadata } from '../types/database.types'
+import { useTranslation } from 'react-i18next'
+import { AppState } from 'react-native'
 
-export function useChat(conversationId: string) {
-    const { user } = useAuth();
+interface UseChatReturn {
+    messages: MessageComplet[]
+    isLoading: boolean
+    isSending: boolean
+    hasMore: boolean
+    isTyping: boolean
+    sendMessage: (text: string) => Promise<void>
+    sendVisiteProposition: (date: string, heure: string) => Promise<void>
+    confirmerVisite: (visiteId: string, date: string, heure: string) => Promise<void>
+    annulerVisite: (visiteId: string, date: string, heure: string) => Promise<void>
+    loadMore: () => void
+    markAsRead: () => void
+    broadcastTyping: () => void
+}
 
-    // States
-    const [messages, setMessages] = useState<MessageAvecExpediteur[]>([]);
-    const [conversation, setConversation] = useState<ConversationAvecDetails | null>(null);
-    const [visiteActive, setVisiteActive] = useState<Visite | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const [isSending, setIsSending] = useState(false);
-    const [inputText, setInputText] = useState('');
-    const [canLoadMore, setCanLoadMore] = useState(true);
-    const [isTyping, setIsTyping] = useState(false); // is interlocutor typing?
-    const [typingUserId, setTypingUserId] = useState<string | null>(null);
+/**
+ * Hook pour gérer une discussion en temps réel.
+ */
+export function useChat(conversationId: string): UseChatReturn {
+    const { user } = useAuth()
+    const { showToast } = useToast()
+    const { t } = useTranslation()
 
-    // Pagination
-    const pageRef = useRef(0);
-    const pageSize = 30;
+    const [messages, setMessages] = useState<MessageComplet[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSending, setIsSending] = useState(false)
+    const [page, setPage] = useState(0)
+    const [hasMore, setHasMore] = useState(true)
+    const [isTyping, setIsTyping] = useState(false)
 
-    // Presence Channel
-    const presenceChannelRef = useRef<RealtimeChannel | null>(null);
-    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const limit = 30
+    const channelRef = useRef<any>(null)
+    const typingChannelRef = useRef<any>(null)
 
-    const loadInitialData = useCallback(async () => {
-        if (!user || !conversationId) return;
-
+    // 1. Chargement initial
+    const loadInitialMessages = useCallback(async () => {
+        if (!conversationId) return
+        setIsLoading(true)
         try {
-            const [fetchedMessages, fetchedDetails, fetchedVisiteActive] = await Promise.all([
-                messageService.fetchMessages(conversationId, 0, pageSize),
-                messageService.fetchConversationDetails(conversationId),
-                visiteService.getVisiteActive(conversationId)
-            ]);
-
-            setMessages(fetchedMessages);
-            setConversation(fetchedDetails);
-            setVisiteActive(fetchedVisiteActive);
-
-            if (fetchedMessages.length < pageSize) {
-                setCanLoadMore(false);
-            }
-
-            await messageService.markMessagesAsRead(conversationId, user.id);
-        } catch (error) {
-            console.error("Failed to load chat room:", error);
+            const data = await messageService.fetchMessages(conversationId, 0, limit)
+            setMessages(data)
+            setHasMore(data.length === limit)
+            markAsRead()
+        } catch (err) {
+            console.error('[useChat] initial load error:', err)
         } finally {
-            setIsLoading(false);
+            setIsLoading(false)
         }
-    }, [conversationId, user]);
+    }, [conversationId])
 
+    // 2. Marquer comme lu
+    const markAsRead = useCallback(async () => {
+        if (!conversationId || !user) return
+        try {
+            await conversationService.markAllAsRead(conversationId, user.id)
+        } catch (err) {
+            console.error('[useChat] markAsRead error:', err)
+        }
+    }, [conversationId, user])
+
+    // 3. Temps réel & Presence
     useEffect(() => {
-        let insertChannel: RealtimeChannel;
-        let updateChannel: RealtimeChannel;
+        if (!conversationId || !user) return
 
-        if (conversationId && user) {
-            loadInitialData();
+        loadInitialMessages()
 
-            // 1. Insert messages subscription
-            insertChannel = messageService.subscribeToMessages(conversationId, (newMsg) => {
-                // If it's another user's message, append it and mark as read
-                if (newMsg.id_expediteur !== user.id) {
-                    setMessages(prev => {
-                        // Check if it already exists implicitly
-                        if (prev.find(m => m.id_message === newMsg.id_message)) return prev;
-                        return [newMsg, ...prev];
-                    });
-                    messageService.markMessagesAsRead(conversationId, user.id);
-                } else {
-                    // For my messages, they are handled by optimistic UI, but if a different device sent it:
-                    setMessages(prev => {
-                        const exists = prev.find(m => m.id_message === newMsg.id_message);
-                        if (!exists && !prev.find(m => m.contenu === newMsg.contenu && m.isOptimistic)) {
-                            return [newMsg, ...prev];
-                        }
-                        return prev;
-                    });
+        // Canal pour les nouveaux messages
+        const channel = supabase
+            .channel(`chat-${conversationId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `id_conversation=eq.${conversationId}`
+                },
+                async (payload) => {
+                    const newMsg = payload.new as any
+                    if (newMsg.id_expediteur === user.id) return
+
+                    // Récupérer l'expéditeur pour avoir l'objet complet
+                    const { data: expediteur } = await supabase
+                        .from('utilisateurs')
+                        .select('id_utilisateur, nom_complet, avatar_url')
+                        .eq('id_utilisateur', newMsg.id_expediteur)
+                        .single()
+
+                    const fullMsg: MessageComplet = {
+                        ...newMsg,
+                        expediteur
+                    }
+
+                    setMessages(prev => [fullMsg, ...prev])
+                    markAsRead()
                 }
-            });
+            )
+            .subscribe()
 
-            // 2. Update messages subscription
-            updateChannel = messageService.subscribeToMessageUpdates(conversationId, (updatedMsg) => {
-                setMessages(prev => prev.map(m => m.id_message === updatedMsg.id_message ? { ...m, ...updatedMsg } : m));
-            });
+        channelRef.current = channel
 
-            // 3. Presence subscription (Typing Indicator)
-            presenceChannelRef.current = messageService.subscribeToTypingPresence(
-                conversationId,
-                user.id,
-                (id, typing) => {
-                    setIsTyping(typing);
-                    setTypingUserId(id);
-                }
-            );
-        }
+        // Canal pour le Typing Indicator via Presence
+        const typingChannel = supabase.channel(`typing-${conversationId}`)
+
+        typingChannel
+            .on('presence', { event: 'sync' }, () => {
+                const state = typingChannel.presenceState()
+                const otherTyping = Object.values(state)
+                    .flat()
+                    .some((p: any) => p.userId !== user.id && p.typing)
+                setIsTyping(otherTyping)
+            })
+            .subscribe()
+
+        typingChannelRef.current = typingChannel
+
+        // Gérer le retour au premier plan pour marquer comme lu
+        const appStateSub = AppState.addEventListener('change', (nextState) => {
+            if (nextState === 'active') markAsRead()
+        })
 
         return () => {
-            if (insertChannel) messageService.unsubscribe(insertChannel);
-            if (updateChannel) messageService.unsubscribe(updateChannel);
-            if (presenceChannelRef.current) messageService.unsubscribe(presenceChannelRef.current);
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-
-            // Mark as read when leaving
-            if (conversationId && user) {
-                messageService.markMessagesAsRead(conversationId, user.id);
-            }
-        };
-    }, [conversationId, user, loadInitialData]);
-
-    const loadMoreMessages = async () => {
-        if (!canLoadMore || isLoadingMore || !user) return;
-
-        setIsLoadingMore(true);
-        try {
-            const nextPage = pageRef.current + 1;
-            const olderMessages = await messageService.fetchMessages(conversationId, nextPage, pageSize);
-
-            if (olderMessages.length > 0) {
-                // Append logic for inverted flatlist
-                setMessages(prev => [...prev, ...olderMessages]);
-                pageRef.current = nextPage;
-            }
-
-            if (olderMessages.length < pageSize) {
-                setCanLoadMore(false);
-            }
-        } catch (error) {
-            console.error("Failed to load more messages:", error);
-        } finally {
-            setIsLoadingMore(false);
+            supabase.removeChannel(channel)
+            supabase.removeChannel(typingChannel)
+            appStateSub.remove()
         }
-    };
+    }, [conversationId, user, loadInitialMessages, markAsRead])
 
-    const emitTypingEvent = () => {
-        if (!presenceChannelRef.current || !user) return;
+    // 4. Typing Indicator Broadcast
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-        presenceChannelRef.current.track({ is_typing: true });
+    const broadcastTyping = () => {
+        if (!typingChannelRef.current || !user) return
 
-        // Debounce to stop typing
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingChannelRef.current.track({ typing: true, userId: user.id })
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
         typingTimeoutRef.current = setTimeout(() => {
-            presenceChannelRef.current?.track({ is_typing: false });
-        }, 1500);
-    };
+            typingChannelRef.current?.track({ typing: false, userId: user.id })
+        }, 3000)
+    }
 
-    const handleSetInputText = (text: string) => {
-        setInputText(text);
-        emitTypingEvent();
-    };
+    // 5. Actions
+    const sendMessage = async (text: string) => {
+        if (!text.trim() || !user || !conversationId) return
 
-    const sendMessage = async (type: 'texte' | 'visite_proposee' | 'visite_confirmee' = 'texte', contentOverride?: string) => {
-        const contentToSend = contentOverride || inputText.trim();
-        if (!user || !contentToSend) return;
-
-        setIsSending(true);
-        if (type === 'texte') setInputText(''); // clear input immediately
-
-        const tempId = `optimistic-${Date.now()}`;
-        const optimisticMessage: MessageAvecExpediteur = {
+        const tempId = `temp-${Date.now()}`
+        const tempMessage: MessageComplet = {
             id_message: tempId,
             id_conversation: conversationId,
             id_expediteur: user.id,
-            contenu: contentToSend,
-            type,
-            date_envoi: new Date().toISOString(),
+            contenu: text,
+            type: 'texte',
+            metadata: null,
             lu: false,
-            isOptimistic: true,
-        };
-
-        // Add to UI immediately
-        setMessages(prev => [optimisticMessage, ...prev]);
-
-        try {
-            // Send real message
-            const realMessage = await messageService.sendMessage(conversationId, user.id, contentToSend, type);
-            // Replace optimistic with real
-            setMessages(prev => prev.map(m => m.id_message === tempId ? realMessage : m));
-        } catch (error) {
-            console.error("Failed to send message:", error);
-            // Show error state on message
-            setMessages(prev => prev.map(m => m.id_message === tempId ? { ...m, hasError: true, isOptimistic: false } : m));
-            Alert.alert("Erreur", "Le message n'a pas pu être envoyé.");
-        } finally {
-            setIsSending(false);
-            if (presenceChannelRef.current) presenceChannelRef.current.track({ is_typing: false });
-        }
-    };
-
-    const updateVisiteStatus = async (visiteId: string, status: 'confirmee' | 'annulee') => {
-        try {
-            if (status === 'confirmee') {
-                await visiteService.confirmerVisite(visiteId);
-            } else if (status === 'annulee') {
-                await visiteService.annulerVisite(visiteId);
+            date_envoi: new Date().toISOString(),
+            expediteur: {
+                id_utilisateur: user.id,
+                nom_complet: user.user_metadata?.nom_complet || 'Moi',
+                avatar_url: user.user_metadata?.avatar_url || null
             }
-            const active = await visiteService.getVisiteActive(conversationId);
-            setVisiteActive(active);
-        } catch (error) {
-            console.error(error);
         }
-    };
+
+        // Optimistic UI
+        setMessages(prev => [tempMessage, ...prev])
+        setIsSending(true)
+
+        try {
+            const real = await messageService.sendMessage(conversationId, user.id, text)
+            setMessages(prev => prev.map(m => m.id_message === tempId ? real : m))
+        } catch (err) {
+            console.error('[useChat] sendMessage error:', err)
+            setMessages(prev => prev.filter(m => m.id_message !== tempId))
+            showToast({ message: t('chat.send_error'), type: 'error' })
+        } finally {
+            setIsSending(false)
+            typingChannelRef.current?.track({ typing: false, userId: user.id })
+        }
+    }
+
+    const sendVisiteProposition = async (date: string, heure: string) => {
+        if (!user || !conversationId) return
+        setIsSending(true)
+        try {
+            const msg = await messageService.sendVisiteProposition(conversationId, user.id, date, heure)
+            setMessages(prev => [msg, ...prev])
+        } catch (err) {
+            console.error('[useChat] sendVisiteProposition error:', err)
+            showToast({ message: t('chat.send_error'), type: 'error' })
+        } finally {
+            setIsSending(false)
+        }
+    }
+
+    const confirmerVisite = async (visiteId: string, date: string, heure: string) => {
+        if (!user || !conversationId) return
+        try {
+            const msg = await messageService.updateVisiteStatus(conversationId, user.id, visiteId, 'confirmee', date, heure)
+            setMessages(prev => [msg, ...prev])
+        } catch (err) {
+            console.error('[useChat] confirmerVisite error:', err)
+            showToast({ message: t('chat.send_error'), type: 'error' })
+        }
+    }
+
+    const annulerVisite = async (visiteId: string, date: string, heure: string) => {
+        if (!user || !conversationId) return
+        try {
+            const msg = await messageService.updateVisiteStatus(conversationId, user.id, visiteId, 'annulee', date, heure)
+            setMessages(prev => [msg, ...prev])
+        } catch (err) {
+            console.error('[useChat] annulerVisite error:', err)
+            showToast({ message: t('chat.send_error'), type: 'error' })
+        }
+    }
+
+    const loadMore = async () => {
+        if (!hasMore || isLoading || !conversationId) return
+        const nextPage = page + 1
+        try {
+            const data = await messageService.fetchMessages(conversationId, nextPage, limit)
+            if (data.length > 0) {
+                setMessages(prev => [...prev, ...data])
+                setPage(nextPage)
+            }
+            setHasMore(data.length === limit)
+        } catch (err) {
+            console.error('[useChat] loadMore error:', err)
+        }
+    }
 
     return {
         messages,
-        conversation,
         isLoading,
-        isLoadingMore,
         isSending,
-        inputText,
-        setInputText: handleSetInputText,
-        sendMessage,
-        loadMoreMessages,
-        canLoadMore,
+        hasMore,
         isTyping,
-        visiteActive,
-        updateVisiteStatus,
-        refreshVisiteActive: async () => {
-            const active = await visiteService.getVisiteActive(conversationId);
-            setVisiteActive(active);
-        }
-    };
+        sendMessage,
+        sendVisiteProposition,
+        confirmerVisite,
+        annulerVisite,
+        loadMore,
+        markAsRead,
+        broadcastTyping
+    }
 }

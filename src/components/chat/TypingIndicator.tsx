@@ -1,79 +1,148 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
-import { COLORS, SPACING } from '../../constants/theme';
+import { View, Text, StyleSheet, Animated, Image } from 'react-native';
+import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import { useTranslation } from 'react-i18next';
 
-export default function TypingIndicator() {
-    const dot1Anim = useRef(new Animated.Value(0)).current;
-    const dot2Anim = useRef(new Animated.Value(0)).current;
-    const dot3Anim = useRef(new Animated.Value(0)).current;
+interface TypingIndicatorProps {
+    isTyping: boolean;
+    userAvatar?: string | null;
+    userName?: string;
+}
+
+export default function TypingIndicator({ isTyping, userAvatar, userName }: TypingIndicatorProps) {
+    const { t } = useTranslation();
+
+    const dot1 = useRef(new Animated.Value(0)).current;
+    const dot2 = useRef(new Animated.Value(0)).current;
+    const dot3 = useRef(new Animated.Value(0)).current;
+
+    const fade = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        const bounce = (anim: Animated.Value, delay: number) => {
-            return Animated.sequence([
-                Animated.delay(delay),
-                Animated.loop(
+        if (isTyping) {
+            Animated.timing(fade, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+
+            const createAnimation = (dot: Animated.Value, delay: number) => {
+                return Animated.loop(
                     Animated.sequence([
-                        Animated.timing(anim, {
-                            toValue: -5,
-                            duration: 250,
+                        Animated.delay(delay),
+                        Animated.timing(dot, {
+                            toValue: -6,
+                            duration: 300,
                             useNativeDriver: true,
                         }),
-                        Animated.timing(anim, {
+                        Animated.timing(dot, {
                             toValue: 0,
-                            duration: 250,
+                            duration: 300,
                             useNativeDriver: true,
                         }),
-                        Animated.delay(500),
+                        Animated.delay(600 - delay),
                     ])
-                )
-            ]);
-        };
+                );
+            };
 
-        bounce(dot1Anim, 0).start();
-        bounce(dot2Anim, 150).start();
-        bounce(dot3Anim, 300).start();
+            const animations = [
+                createAnimation(dot1, 0),
+                createAnimation(dot2, 150),
+                createAnimation(dot3, 300),
+            ];
 
-        return () => {
-            dot1Anim.stopAnimation();
-            dot2Anim.stopAnimation();
-            dot3Anim.stopAnimation();
-        };
-    }, []);
+            animations.forEach(a => a.start());
+
+            return () => {
+                animations.forEach(a => a.stop());
+            };
+        } else {
+            Animated.timing(fade, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [isTyping]);
+
+    if (!isTyping) return null;
 
     return (
-        <View style={styles.container}>
-            <View style={styles.bubble}>
-                <Animated.View style={[styles.dot, { transform: [{ translateY: dot1Anim }] }]} />
-                <Animated.View style={[styles.dot, { transform: [{ translateY: dot2Anim }] }]} />
-                <Animated.View style={[styles.dot, { transform: [{ translateY: dot3Anim }] }]} />
+        <Animated.View style={[styles.container, { opacity: fade }]}>
+            <View style={styles.avatarContainer}>
+                {userAvatar ? (
+                    <Image source={{ uri: userAvatar }} style={styles.avatar} />
+                ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                        <Text style={styles.avatarLabel}>{userName?.charAt(0).toUpperCase()}</Text>
+                    </View>
+                )}
             </View>
-        </View>
+
+            <View style={styles.bubble}>
+                <Text style={styles.text}>{userName} {t('chat.typing')}</Text>
+                <View style={styles.dotsContainer}>
+                    <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
+                    <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
+                    <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+                </View>
+            </View>
+        </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        width: '100%',
-        marginVertical: 4,
-        paddingHorizontal: SPACING.md,
-        alignItems: 'flex-start',
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: SPACING.sm,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+    },
+    avatarContainer: {
+        marginRight: SPACING.sm,
+        marginBottom: 4,
+    },
+    avatar: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+    },
+    avatarPlaceholder: {
+        backgroundColor: COLORS.border,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarLabel: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: COLORS.textSecondary,
     },
     bubble: {
         flexDirection: 'row',
+        backgroundColor: COLORS.border,
+        paddingVertical: SPACING.xs,
+        paddingHorizontal: SPACING.sm,
+        borderRadius: BORDER_RADIUS.md,
+        borderBottomLeftRadius: 0,
         alignItems: 'center',
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        borderBottomLeftRadius: 4,
+    },
+    text: {
+        fontSize: TYPOGRAPHY.fontSizeXS,
+        color: COLORS.textSecondary,
+        fontStyle: 'italic',
+        marginRight: SPACING.sm,
+    },
+    dotsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 12,
     },
     dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
+        width: 4,
+        height: 4,
+        borderRadius: 2,
         backgroundColor: COLORS.textSecondary,
-        marginHorizontal: 3,
-    }
+        marginHorizontal: 1,
+        opacity: 0.6,
+    },
 });

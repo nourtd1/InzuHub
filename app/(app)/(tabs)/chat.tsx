@@ -1,23 +1,37 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, TextInput, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import React, { useState, useMemo, useCallback } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    SectionList,
+    TextInput,
+    TouchableOpacity,
+    RefreshControl,
+    ActivityIndicator
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
-
+import { router } from 'expo-router';
 import { useConversations } from '../../../src/hooks/useConversations';
 import { useAuth } from '../../../src/hooks/useAuth';
-import { getConversationPeriod, getPeriodLabel } from '../../../src/utils/formatters';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../src/constants/theme';
-import { ConversationListItem } from '../../../src/services/conversationService';
+import { getConversationPeriod } from '../../../src/utils/formatters';
+import { useTranslation } from 'react-i18next';
 
 import ConversationItem from '../../../src/components/chat/ConversationItem';
 import SwipeableConversationItem from '../../../src/components/chat/SwipeableConversationItem';
 import EmptyStateChat from '../../../src/components/chat/EmptyStateChat';
-import { useTranslation } from '../../../src/i18n/useTranslation';
 
 export default function ChatListScreen() {
     const { user, profile } = useAuth();
-    const { conversations, isRefreshing, refresh, deleteConversation } = useConversations();
+    const {
+        conversations,
+        isLoading,
+        isRefreshing,
+        refresh,
+        deleteConversation,
+        totalUnread
+    } = useConversations();
+
     const [searchQuery, setSearchQuery] = useState('');
     const { t } = useTranslation();
 
@@ -25,20 +39,21 @@ export default function ChatListScreen() {
         if (!searchQuery.trim()) return conversations;
         const lowerQ = searchQuery.toLowerCase();
         return conversations.filter(c =>
-            c.interlocuteur?.nom_complet?.toLowerCase().includes(lowerQ) ||
-            c.propriete?.titre?.toLowerCase().includes(lowerQ)
+            c.locataire.nom_complet.toLowerCase().includes(lowerQ) ||
+            c.proprietaire.nom_complet.toLowerCase().includes(lowerQ) ||
+            c.propriete.titre.toLowerCase().includes(lowerQ)
         );
     }, [conversations, searchQuery]);
 
     const groupedData = useMemo(() => {
-        const sections: { title: string; data: ConversationListItem[] }[] = [
+        const sections: { title: 'today' | 'week' | 'older'; data: any[] }[] = [
             { title: 'today', data: [] },
             { title: 'week', data: [] },
             { title: 'older', data: [] }
         ];
 
         filteredConversations.forEach(conv => {
-            const dateStr = conv.dernier_message?.date_envoi || conv.date_creation;
+            const dateStr = conv.dernier_message?.date_envoi || conv.derniere_activite;
             const period = getConversationPeriod(dateStr);
             const section = sections.find(s => s.title === period);
             if (section) section.data.push(conv);
@@ -47,22 +62,45 @@ export default function ChatListScreen() {
         return sections.filter(section => section.data.length > 0);
     }, [filteredConversations]);
 
-    const handlePress = (convId: string) => {
+    const handlePress = useCallback((convId: string) => {
         router.push(`/chat/${convId}`);
-    };
+    }, []);
 
     const handleDelete = async (convId: string) => {
         try {
             await deleteConversation(convId);
         } catch (error) {
-            // Error managed in hook or Alert
+            console.error(error);
         }
     };
 
-    const renderHeader = () => {
-        if (conversations.length <= 3) return null; // Only show search if > 3 convs
-
+    if (isLoading && !isRefreshing) {
         return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+        );
+    }
+
+    if (conversations.length === 0 && !isRefreshing) {
+        const currentRole = profile?.role === 'administrateur' ? 'locataire' : (profile?.role || 'locataire');
+        return <EmptyStateChat role={currentRole} />;
+    }
+
+    return (
+        <View style={styles.container}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.title}>{t('chat.title')}</Text>
+                    <Text style={styles.subtitle}>
+                        {totalUnread > 0
+                            ? t('chat.unread_count', { count: totalUnread })
+                            : t('chat.no_unread')
+                        }
+                    </Text>
+                </View>
+            </View>
+
             <View style={styles.searchContainer}>
                 <MaterialIcons name="search" size={20} color={COLORS.textSecondary} />
                 <TextInput
@@ -78,23 +116,6 @@ export default function ChatListScreen() {
                     </TouchableOpacity>
                 )}
             </View>
-        );
-    };
-
-    if (conversations.length === 0 && !isRefreshing) {
-        return <EmptyStateChat role={profile?.role || 'locataire'} />;
-    }
-
-    return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>{t('chat.title')}</Text>
-                <Text style={styles.subtitle}>
-                    {t(conversations.length > 1 ? 'chat.active_count_plural' : 'chat.active_count', { count: conversations.length })}
-                </Text>
-            </View>
-
-            {renderHeader()}
 
             <SectionList
                 sections={groupedData}
@@ -113,8 +134,9 @@ export default function ChatListScreen() {
                         <Text style={styles.sectionHeaderText}>{t(`chat.periods.${title}`)}</Text>
                     </View>
                 )}
-                onRefresh={refresh}
-                refreshing={isRefreshing}
+                refreshControl={
+                    <RefreshControl refreshing={isRefreshing} onRefresh={refresh} colors={[COLORS.primary]} />
+                }
                 contentContainerStyle={styles.listContent}
                 stickySectionHeadersEnabled={false}
             />
@@ -125,8 +147,8 @@ export default function ChatListScreen() {
                     activeOpacity={0.8}
                     onPress={() => router.push('/(app)/(tabs)/')}
                 >
-                    <MaterialIcons name="search" size={20} color={COLORS.surface} style={styles.fabIcon} />
-                    <Text style={styles.fabText}>{t('chat.search_property')}</Text>
+                    <MaterialIcons name="add" size={24} color={COLORS.surface} />
+                    <Text style={styles.fabText}>{t('chat.new_chat')}</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -138,32 +160,37 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.background,
+    },
     header: {
-        paddingTop: 60, // Safe area approx
+        paddingTop: 60,
         paddingHorizontal: SPACING.lg,
-        paddingBottom: SPACING.sm,
+        paddingBottom: SPACING.md,
         backgroundColor: COLORS.surface,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: COLORS.border,
     },
     title: {
-        fontSize: TYPOGRAPHY.fontSizeXL,
+        fontSize: TYPOGRAPHY.fontSizeXXL,
         fontWeight: 'bold',
-        color: COLORS.primary,
+        color: COLORS.textPrimary,
     },
     subtitle: {
         fontSize: TYPOGRAPHY.fontSizeSM,
         color: COLORS.textSecondary,
-        marginTop: 2,
+        marginTop: 4,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: COLORS.surface,
-        margin: SPACING.md,
+        marginHorizontal: SPACING.lg,
+        marginBottom: SPACING.md,
         paddingHorizontal: SPACING.md,
-        borderRadius: BORDER_RADIUS.full,
-        height: 44,
+        borderRadius: BORDER_RADIUS.md,
+        height: 48,
         borderWidth: 1,
         borderColor: COLORS.border,
     },
@@ -174,20 +201,19 @@ const styles = StyleSheet.create({
         color: COLORS.textPrimary,
     },
     listContent: {
-        paddingBottom: 80, // Space for FAB
+        paddingBottom: 100,
     },
     sectionHeader: {
-        backgroundColor: COLORS.background,
         paddingHorizontal: SPACING.lg,
-        paddingVertical: SPACING.xs,
-        marginTop: SPACING.sm,
+        paddingVertical: SPACING.sm,
+        backgroundColor: COLORS.background,
     },
     sectionHeaderText: {
         textTransform: 'uppercase',
-        fontSize: TYPOGRAPHY.fontSizeXS,
+        fontSize: 11,
         color: COLORS.textSecondary,
-        letterSpacing: 1,
-        fontWeight: '600',
+        letterSpacing: 1.2,
+        fontWeight: '700',
     },
     fab: {
         position: 'absolute',
@@ -195,23 +221,21 @@ const styles = StyleSheet.create({
         right: SPACING.lg,
         flexDirection: 'row',
         backgroundColor: COLORS.primary,
-        paddingHorizontal: SPACING.md,
-        height: 48,
-        borderRadius: 24,
+        paddingHorizontal: SPACING.lg,
+        height: 56,
+        borderRadius: 28,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
+        shadowColor: COLORS.primary,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 5,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
         elevation: 6,
-    },
-    fabIcon: {
-        marginRight: 6,
     },
     fabText: {
         color: COLORS.surface,
         fontWeight: 'bold',
         fontSize: TYPOGRAPHY.fontSizeMD,
+        marginLeft: 8,
     },
 });

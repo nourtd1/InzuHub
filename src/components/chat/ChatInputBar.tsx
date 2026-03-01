@@ -1,164 +1,133 @@
-import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Text } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    Animated,
+    Keyboard
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import { useTranslation } from 'react-i18next';
 
 interface ChatInputBarProps {
-    value: string;
-    onChangeText: (text: string) => void;
-    onSend: () => void;
-    onPressVisite: () => void;
+    onSend: (text: string) => void;
+    onTyping: () => void;
+    onScheduleVisit: () => void;
     isSending: boolean;
-    canProposeVisite: boolean;
-    visiteStatus?: 'proposee' | 'confirmee' | 'annulee' | null;
+    canSchedule?: boolean;
 }
 
 export default function ChatInputBar({
-    value,
-    onChangeText,
     onSend,
-    onPressVisite,
+    onTyping,
+    onScheduleVisit,
     isSending,
-    canProposeVisite,
-    visiteStatus
+    canSchedule = true
 }: ChatInputBarProps) {
-    const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
+    const [text, setText] = useState('');
+    const inputRef = useRef<TextInput>(null);
 
     const handleSend = () => {
-        if (value.trim() && !isSending) {
-            onSend();
+        if (text.trim()) {
+            onSend(text);
+            setText('');
+            Keyboard.dismiss();
         }
     };
 
+    const handleChangeText = (val: string) => {
+        setText(val);
+        if (val.length > 0) onTyping();
+    };
+
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-            style={styles.keyboardContainer}
-        >
-            <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
-                {canProposeVisite && visiteStatus === 'confirmee' && (
-                    <View style={styles.visitConfirmedBadge}>
-                        <Text style={styles.visitConfirmedText}>✅ Visite confirmée</Text>
-                    </View>
-                )}
-                {canProposeVisite && visiteStatus !== 'confirmee' && (
+        <View style={styles.container}>
+            <View style={styles.inputWrapper}>
+                {canSchedule && (
                     <TouchableOpacity
-                        style={[styles.visitButton, visiteStatus === 'proposee' && styles.visitButtonDisabled]}
-                        onPress={() => {
-                            if (visiteStatus === 'proposee') {
-                                Alert.alert("Information", "Une visite est déjà en attente de confirmation.");
-                            } else {
-                                onPressVisite();
-                            }
-                        }}
+                        style={styles.actionButton}
+                        onPress={onScheduleVisit}
+                        activeOpacity={0.7}
                     >
-                        <MaterialIcons
-                            name="event"
-                            size={24}
-                            color={visiteStatus === 'proposee' ? COLORS.textSecondary : COLORS.primary}
-                        />
+                        <MaterialIcons name="event" size={24} color={COLORS.primary} />
                     </TouchableOpacity>
                 )}
 
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, { maxHeight: 120 }]}
-                        placeholder="Votre message..."
-                        placeholderTextColor={COLORS.textSecondary}
-                        value={value}
-                        onChangeText={onChangeText}
-                        multiline
-                        returnKeyType={Platform.OS === 'ios' ? 'send' : 'default'}
-                        blurOnSubmit={false}
-                        maxLength={1000}
-                    />
-                </View>
+                <TextInput
+                    ref={inputRef}
+                    style={styles.input}
+                    placeholder={t('chat.type_message')}
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={text}
+                    onChangeText={handleChangeText}
+                    multiline
+                    maxLength={1000}
+                />
 
                 <TouchableOpacity
-                    style={[styles.sendButton, (!value.trim() || isSending) && styles.sendButtonDisabled]}
+                    style={[styles.sendButton, (!text.trim() || isSending) && styles.sendButtonDisabled]}
                     onPress={handleSend}
-                    disabled={!value.trim() || isSending}
+                    disabled={!text.trim() || isSending}
                 >
-                    {isSending ? (
-                        <ActivityIndicator size="small" color={COLORS.surface} />
-                    ) : (
-                        <MaterialIcons name="send" size={20} color={COLORS.surface} />
-                    )}
+                    <MaterialIcons name="send" size={24} color={COLORS.surface} />
                 </TouchableOpacity>
             </View>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    keyboardContainer: {
-        backgroundColor: COLORS.surface,
-    },
     container: {
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        backgroundColor: COLORS.surface,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 10,
+    },
+    inputWrapper: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        padding: SPACING.md,
-        backgroundColor: COLORS.surface,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: COLORS.border,
-    },
-    visitButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: `${COLORS.primary}15`,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: SPACING.sm,
-        marginBottom: Platform.OS === 'ios' ? 0 : 2, // Align with input
-    },
-    visitButtonDisabled: {
-        backgroundColor: COLORS.background,
-    },
-    visitConfirmedBadge: {
-        height: 40,
-        paddingHorizontal: SPACING.sm,
-        borderRadius: BORDER_RADIUS.md,
-        backgroundColor: `${COLORS.secondary}15`,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: SPACING.sm,
-        marginBottom: Platform.OS === 'ios' ? 0 : 2,
-    },
-    visitConfirmedText: {
-        fontSize: TYPOGRAPHY.fontSizeXS,
-        color: COLORS.secondary,
-        fontWeight: 'bold',
-    },
-    inputContainer: {
-        flex: 1,
         backgroundColor: COLORS.background,
         borderRadius: BORDER_RADIUS.xl,
-        minHeight: 40,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: Platform.OS === 'ios' ? 10 : 8,
-        marginRight: SPACING.sm,
+        paddingHorizontal: SPACING.xs,
+        paddingVertical: 4,
+        minHeight: 44,
+    },
+    actionButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     input: {
+        flex: 1,
         fontSize: TYPOGRAPHY.fontSizeMD,
         color: COLORS.textPrimary,
-        paddingTop: 0,
-        paddingBottom: 0,
-        textAlignVertical: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: SPACING.sm,
+        maxHeight: 120,
     },
     sendButton: {
+        backgroundColor: COLORS.primary,
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: COLORS.primary,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Platform.OS === 'ios' ? 0 : 2,
+        marginBottom: 2,
+        marginRight: 2,
     },
     sendButtonDisabled: {
-        opacity: 0.4,
         backgroundColor: COLORS.textSecondary,
+        opacity: 0.5,
     },
 });

@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Photo } from '../../types/database.types';
+import { getPublicUrl } from '../../lib/supabase';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -28,7 +29,7 @@ export default function PhotoGallery({ photos, propertyTitle }: PhotoGalleryProp
     const renderPhoto = ({ item }: { item: Photo }) => (
         <TouchableOpacity activeOpacity={0.9} onPress={() => setIsModalVisible(true)}>
             <Image
-                source={{ uri: item.url_photo }}
+                source={{ uri: getPublicUrl(item.url_photo) }}
                 style={styles.image}
                 contentFit="cover"
                 transition={300}
@@ -39,7 +40,7 @@ export default function PhotoGallery({ photos, propertyTitle }: PhotoGalleryProp
     const renderModalPhoto = ({ item }: { item: Photo }) => (
         <View style={styles.modalImageContainer}>
             <Image
-                source={{ uri: item.url_photo }}
+                source={{ uri: getPublicUrl(item.url_photo) }}
                 style={styles.modalImage}
                 contentFit="contain"
             />

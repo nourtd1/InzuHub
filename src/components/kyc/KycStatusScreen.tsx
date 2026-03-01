@@ -13,7 +13,8 @@ interface KycStatusScreenProps {
 }
 
 export default function KycStatusScreen({ demande, onResubmit }: KycStatusScreenProps) {
-    const { statut, motif_rejet, date_soumission } = demande;
+    const { statut, motif_rejet, date_creation } = demande;
+    const dateToFormat = date_creation ? new Date(date_creation) : new Date();
 
     if (statut === 'en_attente') {
         return (
@@ -21,7 +22,7 @@ export default function KycStatusScreen({ demande, onResubmit }: KycStatusScreen
                 <View style={[styles.card, styles.cardWarning]}>
                     <Text style={styles.emoji}>⏳</Text>
                     <Text style={[styles.title, { color: COLORS.warning }]}>Demande en attente</Text>
-                    <Text style={styles.text}>Votre dossier a été soumis le {format(new Date(date_soumission), 'dd MMMM yyyy', { locale: fr })}.</Text>
+                    <Text style={styles.text}>Votre dossier a été soumis le {format(dateToFormat, 'dd MMMM yyyy', { locale: fr })}.</Text>
                     <Text style={[styles.text, { marginTop: SPACING.sm, fontWeight: 'bold' }]}>Délai habituel : 24 à 48 heures.</Text>
                     <Text style={styles.text}>Vous serez notifié par push.</Text>
 

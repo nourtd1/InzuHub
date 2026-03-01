@@ -1,55 +1,52 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { COLORS, TYPOGRAPHY, SPACING } from '../../constants/theme';
-import { Button } from '../ui/Button';
-import { useTranslation } from '../../i18n/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 
 interface EmptyStateChatProps {
-    role: 'locataire' | 'proprietaire' | 'administrateur';
+    role: 'locataire' | 'proprietaire';
 }
 
 export default function EmptyStateChat({ role }: EmptyStateChatProps) {
-    const isLocataire = role === 'locataire';
     const { t } = useTranslation();
+
+    if (role === 'locataire') {
+        return (
+            <View style={styles.container}>
+                <View style={styles.iconContainer}>
+                    <MaterialIcons name="chat-bubble-outline" size={80} color={COLORS.primary} style={{ opacity: 0.3 }} />
+                </View>
+                <Text style={styles.title}>{t('chat.empty_tenant_title')}</Text>
+                <Text style={styles.subtitle}>{t('chat.empty_tenant_subtitle')}</Text>
+
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => router.push('/(app)/(tabs)/')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.buttonText}>{t('chat.empty_tenant_cta')}</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
             <View style={styles.iconContainer}>
-                <MaterialIcons name="chat-bubble-outline" size={64} color={COLORS.primary} />
-                <View style={styles.subIconBadge}>
-                    <MaterialIcons
-                        name={isLocataire ? "home" : "people"}
-                        size={24}
-                        color={COLORS.surface}
-                    />
-                </View>
+                <MaterialIcons name="home-work" size={80} color={COLORS.primary} style={{ opacity: 0.3 }} />
             </View>
+            <Text style={styles.title}>{t('chat.empty_owner_title')}</Text>
+            <Text style={styles.subtitle}>{t('chat.empty_owner_subtitle')}</Text>
 
-            <Text style={styles.title}>
-                {isLocataire ? t('chat.empty_tenant_title') : t('chat.empty_owner_title')}
-            </Text>
-
-            <Text style={styles.subtitle}>
-                {isLocataire
-                    ? t('chat.empty_tenant_subtitle')
-                    : t('chat.empty_owner_subtitle')}
-            </Text>
-
-            <Button
-                title={isLocataire ? t('chat.empty_tenant_cta') : t('chat.empty_owner_cta')}
-                onPress={() => {
-                    if (isLocataire) {
-                        router.push('/(app)/(tabs)/');
-                    } else {
-                        // Supposing there is a post media tab or page
-                        // Adjust URL if it differs in reality
-                        router.push('/(app)/(tabs)/'); // Adjust based on your routing for landlords
-                    }
-                }}
+            <TouchableOpacity
                 style={styles.button}
-            />
+                onPress={() => router.push('/(app)/post/media')}
+                activeOpacity={0.8}
+            >
+                <Text style={styles.buttonText}>{t('chat.empty_owner_cta')}</Text>
+            </TouchableOpacity>
         </View>
     );
 }
@@ -60,37 +57,47 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: SPACING.xl,
-        marginTop: 60,
+        backgroundColor: COLORS.background,
     },
     iconContainer: {
-        position: 'relative',
         marginBottom: SPACING.lg,
-    },
-    subIconBadge: {
-        position: 'absolute',
-        bottom: -5,
-        right: -10,
-        backgroundColor: COLORS.secondary,
-        borderRadius: 20,
-        padding: 6,
-        borderWidth: 3,
-        borderColor: COLORS.background,
+        backgroundColor: COLORS.surface,
+        padding: SPACING.xl,
+        borderRadius: BORDER_RADIUS.full,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 2,
     },
     title: {
-        fontSize: TYPOGRAPHY.fontSizeLG,
+        fontSize: TYPOGRAPHY.fontSizeXL,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
-        marginBottom: SPACING.sm,
         textAlign: 'center',
+        marginBottom: SPACING.sm,
     },
     subtitle: {
         fontSize: TYPOGRAPHY.fontSizeMD,
         color: COLORS.textSecondary,
         textAlign: 'center',
-        marginBottom: SPACING.xl,
         lineHeight: 22,
+        marginBottom: SPACING.xxl,
     },
     button: {
-        minWidth: 200,
-    }
+        backgroundColor: COLORS.primary,
+        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.xl,
+        borderRadius: BORDER_RADIUS.lg,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    buttonText: {
+        color: COLORS.surface,
+        fontSize: TYPOGRAPHY.fontSizeMD,
+        fontWeight: 'bold',
+    },
 });

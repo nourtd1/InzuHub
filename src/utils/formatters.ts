@@ -25,8 +25,11 @@ export function formatPrixMensuel(amount: number): string {
  * Retourne une date relative en français
  * @example "Il y a 2 jours"
  */
-export function formatDateRelative(date: string): string {
-    return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
+export function formatDateRelative(date?: string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return formatDistanceToNow(d, { addSuffix: true, locale: fr });
 }
 
 /**
@@ -69,7 +72,9 @@ export function formatPrixCourt(amount: number): string {
  * Formats time for conversation items
  */
 export function formatConversationTime(dateString: string): string {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
     if (isToday(date)) {
         return format(date, 'HH:mm');
     }
@@ -107,14 +112,20 @@ export function getPeriodLabel(period: 'today' | 'week' | 'older'): string {
 
 // Date de visite longue
 // "Lundi 15 janvier 2025 à 10h00"
-export function formatDateVisite(date: string): string {
-    return format(new Date(date), "EEEE d MMMM yyyy 'à' HH'h'mm", { locale: fr });
+export function formatDateVisite(date?: string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return format(d, "EEEE d MMMM yyyy 'à' HH'h'mm", { locale: fr });
 }
 
 // Date courte pour les chips
 // "Lun. 15 jan."
-export function formatDateCourte(date: string): string {
-    return format(new Date(date), "EEE d MMM", { locale: fr });
+export function formatDateCourte(date?: string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return format(d, "EEE d MMM", { locale: fr });
 }
 
 // Heure formatée

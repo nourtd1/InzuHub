@@ -26,6 +26,8 @@ export interface CreatePropertyData {
     id_quartier: string;
     id_utilisateur: string;
     statut: 'disponible' | 'en_cours' | 'loue';
+    latitude?: number | null;
+    longitude?: number | null;
 }
 
 export const propertyService = {

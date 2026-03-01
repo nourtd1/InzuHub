@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants/theme';
 import { formatPrix } from '../../utils/formatters';
 import { router } from 'expo-router';
+import { getPublicUrl } from '../../lib/supabase';
 
 interface MyPropertiesSectionProps {
     properties: ProprieteAvecPhotos[];
@@ -99,7 +100,7 @@ const PropertyListItem = ({ property, onUpdateStatus, onDeleteProperty }: any) =
     return (
         <View style={styles.listItem}>
             <Image
-                source={{ uri: property.photos?.[0]?.url_photo || 'https://via.placeholder.com/56' }}
+                source={{ uri: getPublicUrl(property.photos?.[0]?.url_photo) || 'https://via.placeholder.com/56' }}
                 style={styles.image}
             />
             <View style={styles.infoContainer}>

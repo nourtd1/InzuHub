@@ -6,6 +6,7 @@ import { ProprieteAvecPhotos, Quartier, Utilisateur } from '../../types/database
 import { COLORS, SPACING, BORDER_RADIUS, TYPOGRAPHY } from '../../constants/theme';
 import { formatPrixMensuel, formatDateRelative } from '../../utils/formatters';
 import { useTranslation } from '../../i18n/useTranslation';
+import { getPublicUrl } from '../../lib/supabase';
 import FavorisButton from '../ui/FavorisButton';
 
 interface PropertyCardProps {
@@ -72,7 +73,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress })
                     {mainPhotoUrl ? (
                         <Image
                             style={styles.image}
-                            source={{ uri: mainPhotoUrl }}
+                            source={{ uri: getPublicUrl(mainPhotoUrl) }}
                             placeholder={{ blurhash }}
                             contentFit="cover"
                             transition={200}

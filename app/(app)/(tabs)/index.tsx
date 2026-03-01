@@ -17,6 +17,7 @@ import { ProprieteAvecPhotos } from '../../../src/types/database.types';
 import { useTranslation } from '../../../src/i18n/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAlertes } from '../../../src/hooks/useAlertes';
+import { getPublicUrl } from '../../../src/lib/supabase';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -61,8 +62,7 @@ export default function HomeScreen() {
 
     const handlePropertyPress = (id: string) => {
         // Navigate to property details
-        // router.push(`/property/${id}`);
-        console.log('Navigate to property', id);
+        router.push(`/(app)/property/${id}`);
     };
 
     const handleQuartierSelect = (id: string | undefined) => {
@@ -164,9 +164,9 @@ export default function HomeScreen() {
                     <Text style={styles.logoText}>{t('home.title')}</Text>
                     <Text style={styles.subtitleText}>{t('home.subtitle')}</Text>
                 </View>
-                <TouchableOpacity style={styles.avatarContainer}>
+                <TouchableOpacity style={styles.avatarContainer} onPress={() => router.push('/profile')}>
                     {profile?.avatar_url ? (
-                        <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                        <Image source={{ uri: getPublicUrl(profile.avatar_url, 'avatars') }} style={styles.avatar} />
                     ) : (
                         <View style={[styles.avatar, styles.avatarPlaceholder]}>
                             <Text style={styles.avatarInitials}>

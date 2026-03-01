@@ -1,90 +1,96 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ConversationListItem } from '../../services/conversationService';
-import Avatar from '../ui/Avatar';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { formatConversationTime } from '../../utils/formatters';
+import Avatar from '../ui/Avatar';
+import type { ConversationComplete } from '../../types/database.types';
+import { useTranslation } from 'react-i18next';
 
 interface ConversationItemProps {
-    conversation: ConversationListItem;
+    conversation: ConversationComplete;
     currentUserId: string;
     onPress: () => void;
 }
 
 export default function ConversationItem({ conversation, currentUserId, onPress }: ConversationItemProps) {
-    const isOwner = currentUserId === conversation.id_proprietaire;
-    const { dernier_message, unread_count, interlocuteur, propriete } = conversation;
+    const { t } = useTranslation();
+    const {
+        locataire,
+        proprietaire,
+        propriete,
+        dernier_message,
+        non_lus,
+        derniere_activite
+    } = conversation;
 
-    // Determine the last message content
-    const getLastMessageText = () => {
-        if (!dernier_message) return "Démarrez la conversation...";
+    // Déterminer l'autre participant
+    const isLocataire = locataire.id_utilisateur === currentUserId;
+    const interlocuteur = isLocataire ? proprietaire : locataire;
 
-        let prefix = dernier_message.id_expediteur === currentUserId ? "Vous : " : "";
-        let content = dernier_message.contenu;
+    const isUnread = non_lus > 0;
+    const time = formatConversationTime(dernier_message?.date_envoi || derniere_activite);
 
-        if (dernier_message.type === 'visite_proposee') {
-            return `${prefix}📅 Visite proposée`;
+    // Formater l'aperçu du message
+    const getMessagePreview = () => {
+        if (!dernier_message) return t('chat.new_conversation', { titre: propriete.titre });
+
+        const isMe = dernier_message.id_expediteur === currentUserId;
+        const prefix = isMe ? `${t('chat.you')} : ` : '';
+
+        switch (dernier_message.type) {
+            case 'visite_proposee':
+                return `📅 ${t('message.propose_visit')}`;
+            case 'visite_confirmee':
+                return `✅ ${t('message.visit_confirmed_card')}`;
+            case 'visite_annulee':
+                return `❌ ${t('message.visit_cancelled_card')}`;
+            default:
+                return `${prefix}${dernier_message.contenu}`;
         }
-        if (dernier_message.type === 'visite_confirmee') {
-            return `${prefix}✅ Visite confirmée`;
-        }
-
-        return `${prefix}${content}`;
     };
-
-    const isUnread = unread_count > 0;
-    const timeText = dernier_message
-        ? formatConversationTime(dernier_message.date_envoi)
-        : formatConversationTime(conversation.date_creation);
 
     return (
         <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onPress}
             style={[styles.container, isUnread && styles.unreadContainer]}
+            onPress={onPress}
+            activeOpacity={0.7}
         >
-            <View style={styles.avatarContainer}>
-                <Avatar
-                    uri={interlocuteur.avatar_url}
-                    name={interlocuteur.nom_complet || 'Utilisateur'}
-                    size={52}
-                />
-                <View style={[styles.roleBadge, { backgroundColor: isOwner ? COLORS.secondary : COLORS.primary }]} />
-            </View>
+            <Avatar
+                uri={interlocuteur.avatar_url}
+                name={interlocuteur.nom_complet}
+                size={52}
+                isVerified={interlocuteur.statut_verification}
+            />
 
-            <View style={styles.contentContainer}>
-                <View style={styles.headerRow}>
+            <View style={styles.content}>
+                <View style={styles.header}>
                     <Text
-                        style={[styles.nameText, isUnread && styles.nameTextUnread]}
+                        style={[styles.name, isUnread && styles.unreadText]}
                         numberOfLines={1}
                     >
                         {interlocuteur.nom_complet}
                     </Text>
-                    <Text style={[styles.timeText, isUnread && styles.timeTextUnread]}>
-                        {timeText}
+                    <Text style={[styles.time, isUnread && styles.unreadTime]}>
+                        {time}
                     </Text>
                 </View>
 
-                <Text style={styles.propertyText} numberOfLines={1}>
-                    🏠 {propriete?.titre}
+                <Text style={styles.propertyTitle} numberOfLines={1}>
+                    🏠 {propriete.titre}
                 </Text>
 
-                <View style={styles.footerRow}>
+                <View style={styles.footer}>
                     <Text
-                        style={[
-                            styles.messageText,
-                            isUnread && styles.messageTextUnread,
-                            !dernier_message && styles.messageTextEmpty
-                        ]}
+                        style={[styles.lastMessage, isUnread && styles.unreadText]}
                         numberOfLines={1}
                     >
-                        {getLastMessageText()}
+                        {getMessagePreview()}
                     </Text>
 
                     {isUnread && (
-                        <View style={styles.unreadBadge}>
-                            <Text style={styles.unreadCountText}>
-                                {unread_count > 99 ? '99+' : unread_count}
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeText}>
+                                {non_lus > 9 ? '9+' : non_lus}
                             </Text>
                         </View>
                     )}
@@ -101,87 +107,69 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: COLORS.border,
+        alignItems: 'center',
     },
     unreadContainer: {
-        backgroundColor: `${COLORS.primary}0D`, // 5% opacity
+        backgroundColor: `${COLORS.primary}08`, // 3% primary
     },
-    avatarContainer: {
-        position: 'relative',
-        marginRight: SPACING.md,
-    },
-    roleBadge: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 14,
-        height: 14,
-        borderRadius: 7,
-        borderWidth: 2,
-        borderColor: COLORS.surface,
-    },
-    contentContainer: {
+    content: {
         flex: 1,
-        justifyContent: 'center',
+        marginLeft: SPACING.md,
     },
-    headerRow: {
+    header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'baseline',
+        alignItems: 'center',
         marginBottom: 2,
     },
-    nameText: {
-        flex: 1,
+    name: {
         fontSize: TYPOGRAPHY.fontSizeMD,
-        fontWeight: 'bold',
+        fontWeight: '600',
         color: COLORS.textPrimary,
+        flex: 1,
         marginRight: SPACING.sm,
     },
-    nameTextUnread: {
-        fontWeight: '800',
-    },
-    timeText: {
+    time: {
         fontSize: TYPOGRAPHY.fontSizeXS,
         color: COLORS.textSecondary,
     },
-    timeTextUnread: {
+    unreadTime: {
         color: COLORS.primary,
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
-    propertyText: {
-        fontSize: TYPOGRAPHY.fontSizeSM,
+    propertyTitle: {
+        fontSize: TYPOGRAPHY.fontSizeXS,
         color: COLORS.textSecondary,
         marginBottom: 4,
+        fontWeight: '500',
     },
-    footerRow: {
+    footer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    messageText: {
-        flex: 1,
+    lastMessage: {
         fontSize: TYPOGRAPHY.fontSizeSM,
         color: COLORS.textSecondary,
+        flex: 1,
         marginRight: SPACING.sm,
     },
-    messageTextUnread: {
+    unreadText: {
         color: COLORS.textPrimary,
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
-    messageTextEmpty: {
-        fontStyle: 'italic',
-    },
-    unreadBadge: {
+    badge: {
+        backgroundColor: COLORS.danger,
         minWidth: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: COLORS.primary,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 4,
     },
-    unreadCountText: {
+    badgeText: {
         color: COLORS.surface,
-        fontSize: TYPOGRAPHY.fontSizeXS,
+        fontSize: 10,
         fontWeight: 'bold',
     },
 });

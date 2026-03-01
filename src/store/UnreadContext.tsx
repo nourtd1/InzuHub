@@ -1,17 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, PropsWithChildren } from 'react';
 import { conversationService } from '../services/conversationService';
 import { useAuth } from '../hooks/useAuth';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 interface UnreadContextType {
     totalUnread: number;
-    setTotalUnread: (count: number) => void;
     refreshUnread: () => Promise<void>;
 }
 
 const UnreadContext = createContext<UnreadContextType>({
     totalUnread: 0,
-    setTotalUnread: () => { },
     refreshUnread: async () => { },
 });
 
@@ -26,7 +24,7 @@ export function UnreadProvider({ children }: PropsWithChildren) {
     const refreshUnread = async () => {
         if (!user) return;
         try {
-            const count = await conversationService.countUnreadMessages(user.id);
+            const count = await conversationService.countTotalUnread(user.id);
             setTotalUnread(count);
         } catch (error) {
             console.error('Error refreshing unread count:', error);
@@ -42,17 +40,31 @@ export function UnreadProvider({ children }: PropsWithChildren) {
         refreshUnread();
 
         // Subscribe to messages changes to update unread dynamically
-        const channel: RealtimeChannel = conversationService.subscribeToConversations(user.id, () => {
-            refreshUnread();
-        });
+        const channel = supabase
+            .channel('unread-count-updates')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages'
+            }, () => {
+                refreshUnread();
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'messages'
+            }, () => {
+                refreshUnread();
+            })
+            .subscribe();
 
         return () => {
-            conversationService.unsubscribeFromConversations(channel);
+            supabase.removeChannel(channel);
         };
     }, [user]);
 
     return (
-        <UnreadContext.Provider value={{ totalUnread, setTotalUnread, refreshUnread }}>
+        <UnreadContext.Provider value={{ totalUnread, refreshUnread }}>
             {children}
         </UnreadContext.Provider>
     );

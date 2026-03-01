@@ -1,25 +1,25 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants/theme';
-import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { isToday, isYesterday, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface DateSeparatorProps {
-    dateString: string;
+    date: string;
 }
 
-export default function DateSeparator({ dateString }: DateSeparatorProps) {
-    const date = new Date(dateString);
-    let label = '';
+export default function DateSeparator({ date }: DateSeparatorProps) {
+    const { t } = useTranslation();
+    const d = new Date(date);
 
-    if (isToday(date)) {
-        label = "Aujourd'hui";
-    } else if (isYesterday(date)) {
-        label = 'Hier';
-    } else if (isThisWeek(date)) {
-        label = format(date, 'eee d MMM', { locale: fr });
+    let label = '';
+    if (isToday(d)) {
+        label = t('chat.today');
+    } else if (isYesterday(d)) {
+        label = t('chat.yesterday');
     } else {
-        label = format(date, 'd MMM yyyy', { locale: fr });
+        label = format(d, 'EEEE d MMMM', { locale: fr });
     }
 
     return (
@@ -35,18 +35,20 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: SPACING.md,
+        paddingVertical: SPACING.lg,
         paddingHorizontal: SPACING.xl,
     },
     line: {
         flex: 1,
-        height: StyleSheet.hairlineWidth,
+        height: 1,
         backgroundColor: COLORS.border,
     },
     text: {
+        paddingHorizontal: SPACING.md,
         fontSize: TYPOGRAPHY.fontSizeXS,
         color: COLORS.textSecondary,
-        paddingHorizontal: SPACING.md,
-        backgroundColor: COLORS.background, // Match container bg so it acts as mask
-    }
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
 });

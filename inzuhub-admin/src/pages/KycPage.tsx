@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getPublicUrl } from '../lib/supabase';
 import { Badge } from '../components/ui';
 import { Search } from 'lucide-react';
 import KycDetailModal from '../components/kyc/KycDetailModal';
@@ -114,7 +114,7 @@ export default function KycPage() {
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0 h-10 w-10">
                                                 {d.utilisateurs?.avatar_url ? (
-                                                    <img className="h-10 w-10 rounded-full" src={d.utilisateurs.avatar_url} alt="" />
+                                                    <img className="h-10 w-10 rounded-full" src={getPublicUrl(d.utilisateurs.avatar_url, 'avatars')} alt="" />
                                                 ) : (
                                                     <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
                                                         {d.utilisateurs?.nom_complet?.[0]}

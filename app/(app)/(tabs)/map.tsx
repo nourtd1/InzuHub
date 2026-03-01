@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Animated, ScrollView } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLocation } from '../../../src/hooks/useLocation';
@@ -23,6 +23,7 @@ const GISENYI_CENTER: Region = {
 };
 
 export default function MapScreen() {
+    const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
     const mapRef = useRef<MapView>(null);
     const { userLocation, hasPermission } = useLocation();
     const {
@@ -39,6 +40,16 @@ export default function MapScreen() {
     const [activeFilter, setActiveFilter] = useState<string>('all');
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const insets = useSafeAreaInsets();
+
+    // Handle propertyId from search params
+    useEffect(() => {
+        if (propertyId && properties.length > 0) {
+            const prop = properties.find(p => p.id_propriete === propertyId);
+            if (prop && prop.latitude && prop.longitude) {
+                handleMarkerPress(propertyId, prop.latitude as number, prop.longitude as number);
+            }
+        }
+    }, [propertyId, properties]);
 
     // Show counter animation when count changes
     useEffect(() => {
@@ -134,11 +145,14 @@ export default function MapScreen() {
                         key={property.id_propriete}
                         property={property}
                         isSelected={selectedProperty?.id_propriete === property.id_propriete}
-                        onPress={() => handleMarkerPress(
-                            property.id_propriete,
-                            property.latitude as number,
-                            property.longitude as number
-                        )}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            handleMarkerPress(
+                                property.id_propriete,
+                                property.latitude as number,
+                                property.longitude as number
+                            );
+                        }}
                     />
                 ))}
             </MapView>
@@ -178,7 +192,7 @@ export default function MapScreen() {
                     />
                 )}
                 <RecenterButton
-                    icon="gps-fixed"
+                    icon="location-searching"
                     onPress={handleRecenter}
                 />
             </View>
@@ -186,7 +200,7 @@ export default function MapScreen() {
             <PropertyPreviewPanel
                 property={selectedProperty}
                 onClose={() => selectProperty(null)}
-                onViewDetails={(id) => router.push(`/property/${id}`)}
+                onViewDetails={(id) => router.push(`/(app)/property/${id}`)}
             />
 
             {isLoading && (

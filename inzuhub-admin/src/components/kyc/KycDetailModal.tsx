@@ -13,16 +13,16 @@ export default function KycDetailModal({ demande, onClose, onProcessed }: { dema
 
     useEffect(() => {
         const getSignedUrls = async () => {
-            if (demande.document_recto_url) {
-                const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(demande.document_recto_url, 3600);
+            if (demande.url_recto) {
+                const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(demande.url_recto, 3600);
                 if (data?.signedUrl) setDocRecto(data.signedUrl);
             }
-            if (demande.document_verso_url) {
-                const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(demande.document_verso_url, 3600);
+            if (demande.url_verso) {
+                const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(demande.url_verso, 3600);
                 if (data?.signedUrl) setDocVerso(data.signedUrl);
             }
-            if (demande.selfie_url) {
-                const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(demande.selfie_url, 3600);
+            if (demande.url_selfie) {
+                const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(demande.url_selfie, 3600);
                 if (data?.signedUrl) setSelfie(data.signedUrl);
             }
         };
@@ -38,7 +38,7 @@ export default function KycDetailModal({ demande, onClose, onProcessed }: { dema
         setSubmitting(true);
         try {
             await supabase.from('kyc_demandes').update({ statut: 'approuve' }).eq('id_demande', demande.id_demande);
-            await supabase.from('utilisateurs').update({ statut_verification: 'approuve' }).eq('id_utilisateur', demande.id_utilisateur);
+            await supabase.from('utilisateurs').update({ statut_verification: true }).eq('id_utilisateur', demande.id_utilisateur);
             await supabase.functions.invoke('send-push-notification', {
                 body: {
                     userId: demande.id_utilisateur,
@@ -67,7 +67,7 @@ export default function KycDetailModal({ demande, onClose, onProcessed }: { dema
         setSubmitting(true);
         try {
             await supabase.from('kyc_demandes').update({ statut: 'rejete', "motif_rejet": rejectReason }).eq('id_demande', demande.id_demande);
-            await supabase.from('utilisateurs').update({ statut_verification: 'rejete' }).eq('id_utilisateur', demande.id_utilisateur);
+            await supabase.from('utilisateurs').update({ statut_verification: false }).eq('id_utilisateur', demande.id_utilisateur);
             await supabase.functions.invoke('send-push-notification', {
                 body: {
                     userId: demande.id_utilisateur,
@@ -100,7 +100,7 @@ export default function KycDetailModal({ demande, onClose, onProcessed }: { dema
                                     KYC — {demande.utilisateurs?.nom_complet}
                                 </h3>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    {demande.utilisateurs?.numero_telephone} • Soumis le {new Date(demande.date_creation).toLocaleDateString()}
+                                    {demande.utilisateurs?.numero_telephone} • Soumis le {new Date(demande.date_soumission).toLocaleDateString()}
                                 </p>
                             </div>
                             <button onClick={onClose} className="text-gray-400 hover:text-gray-500">

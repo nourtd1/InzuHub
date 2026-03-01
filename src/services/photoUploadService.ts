@@ -29,45 +29,48 @@ export const photoUploadService = {
     // Déplacer les photos temp vers le dossier final
     async moveTempPhotosToProperty(userId: string, propertyId: string, tempPaths: string[]): Promise<string[]> {
         const finalUrls: string[] = [];
+        console.log(`Starting Move: ${tempPaths.length} photos for property ${propertyId}`);
 
         for (const tempPath of tempPaths) {
             try {
-                // Vérifier si le fichier existe avant de le déplacer
-                const { data: existingFile, error: checkError } = await supabase.storage
-                    .from('property-photos')
-                    .list(tempPath.substring(0, tempPath.lastIndexOf('/')), {
-                        search: tempPath.split('/').pop()
-                    });
-
-                if (checkError || !existingFile || existingFile.length === 0) {
-                    console.warn(`Photo temp introuvable, ignorée: ${tempPath}`);
-                    continue;
+                // Ensure the path is relative to the bucket and doesn't contain the bucket name prefix
+                let cleanSource = tempPath;
+                if (cleanSource.startsWith('property-photos/')) {
+                    cleanSource = cleanSource.substring('property-photos/'.length);
                 }
 
-                const fileName = tempPath.split('/').pop();
+                const fileName = cleanSource.split('/').pop();
                 const finalPath = `${propertyId}/${fileName}`;
 
-                const { data, error } = await supabase.storage
+                console.log(`Attempting Move: '${cleanSource}' -> '${finalPath}'`);
+
+                // Move operation
+                const { error } = await supabase.storage
                     .from('property-photos')
-                    .move(tempPath, finalPath);
+                    .move(cleanSource, finalPath);
 
                 if (error) {
-                    console.error(`Erreur déplacement photo ${tempPath} vers ${finalPath}`, error);
-                    continue;
+                    if (error.message.includes('already exists')) {
+                        console.log(`Photo already moved/exists at ${finalPath}`);
+                    } else {
+                        console.error(`Move failed for ${cleanSource}: ${error.message} (Status: ${error.name})`);
+                        continue;
+                    }
                 }
 
-                // Récupérer l'URL publique
+                // URL Public Generation
                 const { data: { publicUrl } } = supabase.storage
                     .from('property-photos')
                     .getPublicUrl(finalPath);
 
                 finalUrls.push(publicUrl);
             } catch (err) {
-                console.error(`Exception lors du déplacement de ${tempPath}:`, err);
+                console.error(`Exception moving ${tempPath}:`, err);
                 continue;
             }
         }
 
+        console.log(`Move completed: ${finalUrls.length} photos successfully processed.`);
         return finalUrls;
     },
 

@@ -7,7 +7,7 @@ import { format, isFuture, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { supabase } from '../../lib/supabase';
+import { supabase, getPublicUrl } from '../../lib/supabase';
 
 interface MyVisitsSectionProps {
     visits: VisiteComplete[];
@@ -61,7 +61,7 @@ const VisitListItem = ({ visit }: { visit: VisiteComplete }) => {
     const isFutur = isFuture(new Date(visit.date_visite));
     const title = visit.conversation?.propriete?.titre || 'Propriété';
     const quartier = visit.conversation?.propriete?.quartier?.nom_quartier || 'Inconnu';
-    const photo = visit.conversation?.propriete?.photos?.[0]?.url_photo || 'https://via.placeholder.com/56';
+    const photo = getPublicUrl(visit.conversation?.propriete?.photos?.[0]?.url_photo) || 'https://via.placeholder.com/56';
     const diffDays = differenceInDays(new Date(visit.date_visite), new Date());
 
     return (

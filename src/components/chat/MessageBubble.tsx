@@ -1,363 +1,203 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { MessageAvecExpediteur } from '../../services/messageService';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Visite } from '../../types/database.types';
-import { formatDateVisite } from '../../utils/formatters';
+import type { MessageComplet } from '../../types/database.types';
+import VisiteCard from './VisiteCard';
+import Avatar from '../ui/Avatar';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface MessageBubbleProps {
-    message: MessageAvecExpediteur;
+    message: MessageComplet;
     isMe: boolean;
-    onConfirmVisite?: () => void;
-    onRefuserVisite?: () => void;
+    isProprietaire: boolean;
+    onConfirmVisite: (visiteId: string, date: string, heure: string) => void;
+    onCancelVisite: (visiteId: string, date: string, heure: string) => void;
+    showAvatar?: boolean;
 }
 
-export default function MessageBubble({ message, isMe, onConfirmVisite, onRefuserVisite }: MessageBubbleProps) {
+export default function MessageBubble({
+    message,
+    isMe,
+    isProprietaire,
+    onConfirmVisite,
+    onCancelVisite,
+    showAvatar = true
+}: MessageBubbleProps) {
+    const { t } = useTranslation();
+    const time = format(new Date(message.date_envoi), 'HH:mm');
 
-    const renderTimeString = (dateStr: string) => {
-        try {
-            return format(new Date(dateStr), 'HH:mm');
-        } catch (e) {
-            return '';
-        }
-    };
-
-    // Render Indicators
-    const renderIndicator = () => {
-        if (!isMe) return null; // No indicators on received messages
-
-        if (message.hasError) {
-            return <MaterialIcons name="error-outline" size={14} color={COLORS.danger} style={styles.indicator} />;
-        }
-        if (message.isOptimistic) {
-            return <ActivityIndicatorOrHourglass />;
-        }
-
-        // Delivered / Read
-        if (message.lu) {
-            return <MaterialIcons name="done-all" size={14} color={COLORS.surface} style={styles.indicator} />;
-        }
-        // Just delivered (gray, or light white since background is primary)
-        return <MaterialIcons name="done" size={14} color="rgba(255,255,255,0.6)" style={styles.indicator} />;
-    };
-
-    /** VARIANTES B & C : VISITES */
-    if (message.type === 'visite_proposee' || message.type === 'visite_confirmee') {
-        let payload: any = {};
-        try {
-            payload = JSON.parse(message.contenu || '{}');
-        } catch (e) {
-            console.error(e);
-        }
-
-        const isProposee = message.type === 'visite_proposee';
-        const dateObj = payload.date_visite || payload.date; // handle variation
-        const formattedDate = dateObj ? formatDateVisite(dateObj) : '';
-        const rawDate = dateObj ? new Date(dateObj) : new Date();
-        const shortDate = format(rawDate, "d MMMM yyyy", { locale: fr });
-        const timeStr = format(rawDate, "HH:mm");
-
-        const systemText = isProposee
-            ? `📅 ${isMe ? 'Vous avez' : "L'utilisateur a"} proposé une visite le ${shortDate} à ${timeStr}`
-            : `✅ Visite confirmée pour le ${shortDate} à ${timeStr} !`;
-
+    // Rendu spécifique pour les types Visite
+    if (message.type === 'visite_confirmee' || message.type === 'visite_annulee') {
+        const isConfirmed = message.type === 'visite_confirmee';
         return (
-            <View>
-                {/* SYSTEM MESSAGE ABOVE */}
-                <Text style={styles.systemMessageText}>{systemText}</Text>
+            <View style={styles.systemContainer}>
+                <View style={[styles.systemBadge, { backgroundColor: isConfirmed ? `${COLORS.secondary}15` : `${COLORS.danger}15` }]}>
+                    <MaterialIcons
+                        name={isConfirmed ? 'check-circle' : 'cancel'}
+                        size={16}
+                        color={isConfirmed ? COLORS.secondary : COLORS.danger}
+                    />
+                    <Text style={[styles.systemText, { color: isConfirmed ? COLORS.secondary : COLORS.danger }]}>
+                        {isConfirmed ? t('message.visit_confirmed_card') : t('message.visit_cancelled_card')}
+                    </Text>
+                </View>
+                <Text style={styles.systemTime}>{time}</Text>
+            </View>
+        );
+    }
 
-                <View style={[styles.container, isMe ? styles.alignRight : styles.alignLeft]}>
-                    <View style={[
-                        styles.visitBubble,
-                        isProposee ? styles.visitBubbleProposee : styles.visitBubbleConfirmee
-                    ]}>
-                        <View style={styles.visitHeader}>
-                            {isProposee ? (
-                                <MaterialIcons name="event" size={20} color={COLORS.warning} />
-                            ) : (
-                                <MaterialIcons name="event-available" size={20} color={COLORS.secondary} />
-                            )}
-                            <Text style={[styles.visitTitle, isProposee ? { color: COLORS.warning } : { color: COLORS.secondary }]}>
-                                {isProposee ? '📅 Visite proposée' : '✅ Visite confirmée !'}
-                            </Text>
-                        </View>
+    return (
+        <View style={[styles.container, isMe ? styles.myContainer : styles.otherContainer]}>
+            {!isMe && showAvatar && (
+                <View style={styles.avatarWrapper}>
+                    <Avatar
+                        uri={message.expediteur?.avatar_url}
+                        name={message.expediteur?.nom_complet || '?'}
+                        size={32}
+                    />
+                </View>
+            )}
 
-                        <View style={styles.visitDivider} />
+            <View style={[styles.bubbleWrapper, isMe ? styles.myBubbleWrapper : styles.otherBubbleWrapper]}>
+                <View style={[
+                    styles.bubble,
+                    isMe ? styles.myBubble : styles.otherBubble,
+                    message.type === 'visite_proposee' && styles.visiteProposedBubble
+                ]}>
 
-                        {formattedDate ? (
-                            <View style={styles.visitDateRows}>
-                                <Text style={styles.visitDateLabel}>
-                                    {formattedDate}
-                                </Text>
-                            </View>
-                        ) : null}
+                    {message.type === 'visite_proposee' ? (
+                        <VisiteCard
+                            message={message}
+                            isProprietaire={isProprietaire}
+                            onConfirm={onConfirmVisite}
+                            onCancel={onCancelVisite}
+                        />
+                    ) : (
+                        <Text style={[styles.text, isMe ? styles.myText : styles.otherText]}>
+                            {message.contenu}
+                        </Text>
+                    )}
 
-                        {/* Actions if proposee and not me */}
-                        {isProposee && !isMe && (
-                            <View style={styles.visitActions}>
-                                <TouchableOpacity style={styles.visitBtnReject} onPress={onRefuserVisite}>
-                                    <Text style={styles.visitTextReject}>✗ Refuser</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.visitBtnAccept} onPress={onConfirmVisite}>
-                                    <Text style={styles.visitTextAccept}>✓ Confirmer</Text>
-                                </TouchableOpacity>
-                            </View>
+                    <View style={styles.footer}>
+                        <Text style={[styles.time, isMe ? styles.myTime : styles.otherTime]}>
+                            {time}
+                        </Text>
+                        {isMe && (
+                            <MaterialIcons
+                                name={message.lu ? "done-all" : "done"}
+                                size={14}
+                                color={message.lu ? COLORS.secondary : COLORS.surface}
+                                style={styles.statusIcon}
+                            />
                         )}
-
-                        {/* Pending state if proposee and me */}
-                        {isProposee && isMe && (
-                            <Text style={styles.visitPendingText}>
-                                En attente de confirmation...
-                            </Text>
-                        )}
-
-                        {/* Adding to calendar if confirmed */}
-                        {!isProposee && (
-                            <TouchableOpacity style={styles.visitBtnCalendar} onPress={() => {
-                                const calendarUrl = Platform.select({
-                                    ios: `calshow:${new Date(rawDate).getTime() / 1000}`,
-                                    android: `content://com.android.calendar/events`
-                                });
-                                Linking.openURL(calendarUrl || '');
-                            }}>
-                                <Text style={styles.visitTextCalendar}>📅 Ajouter au calendrier</Text>
-                            </TouchableOpacity>
-                        )}
-
                     </View>
                 </View>
-            </View>
-        );
-    }
-
-    /** DETECTION ANNULATION SYSTEME */
-    if (message.type === 'texte' && message.contenu?.startsWith('❌ La visite')) {
-        return (
-            <View style={styles.container}>
-                <Text style={styles.systemMessageText}>{message.contenu}</Text>
-            </View>
-        );
-    }
-
-    /** VARIANTE A : MESSAGE ORDINAIRE */
-    return (
-        <View style={[styles.container, isMe ? styles.alignRight : styles.alignLeft]}>
-            <View style={[
-                styles.bubble,
-                isMe ? styles.myBubble : styles.theirBubble,
-                message.isOptimistic && styles.optimisticBubble,
-                message.hasError && styles.errorBubble
-            ]}>
-                <Text style={[
-                    styles.messageText,
-                    isMe ? styles.myMessageText : styles.theirMessageText
-                ]}>
-                    {message.contenu}
-                </Text>
-
-                <View style={styles.footerRow}>
-                    <Text style={[styles.timeText, isMe ? styles.myTimeText : styles.theirTimeText]}>
-                        {renderTimeString(message.date_envoi)}
-                    </Text>
-                    {renderIndicator()}
-                </View>
-
-                {message.hasError && (
-                    <Text style={styles.errorSubText}>Erreur d'envoi. Touchez pour réessayer.</Text>
-                )}
             </View>
         </View>
     );
 }
 
-// Custom simple Hourglass component replacing native ActivityIndicator for better sizing
-const ActivityIndicatorOrHourglass = () => (
-    <MaterialIcons name="hourglass-bottom" size={12} color="rgba(255,255,255,0.6)" style={styles.indicator} />
-);
-
 const styles = StyleSheet.create({
     container: {
-        width: '100%',
+        flexDirection: 'row',
         marginVertical: 4,
         paddingHorizontal: SPACING.md,
+        maxWidth: '85%',
     },
-    alignRight: {
+    myContainer: {
+        alignSelf: 'flex-end',
+        flexDirection: 'row-reverse',
+    },
+    otherContainer: {
+        alignSelf: 'flex-start',
+    },
+    avatarWrapper: {
+        marginRight: 8,
+        alignSelf: 'flex-end',
+        marginBottom: 2,
+    },
+    bubbleWrapper: {
+        flex: 1,
+    },
+    myBubbleWrapper: {
         alignItems: 'flex-end',
     },
-    alignLeft: {
+    otherBubbleWrapper: {
         alignItems: 'flex-start',
     },
-    systemMessageText: {
-        textAlign: 'center',
-        fontSize: TYPOGRAPHY.fontSizeXS,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-        paddingVertical: SPACING.xs,
-        marginVertical: SPACING.sm,
-    },
     bubble: {
-        maxWidth: '78%',
-        paddingVertical: 10,
         paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: BORDER_RADIUS.lg,
+        minWidth: 60,
     },
     myBubble: {
         backgroundColor: COLORS.primary,
-        borderTopLeftRadius: BORDER_RADIUS.lg,
-        borderTopRightRadius: BORDER_RADIUS.lg,
-        borderBottomLeftRadius: BORDER_RADIUS.lg,
-        borderBottomRightRadius: BORDER_RADIUS.sm,
+        borderBottomRightRadius: 2,
     },
-    theirBubble: {
+    otherBubble: {
         backgroundColor: COLORS.surface,
+        borderBottomLeftRadius: 2,
         borderWidth: 1,
         borderColor: COLORS.border,
-        borderTopLeftRadius: BORDER_RADIUS.lg,
-        borderTopRightRadius: BORDER_RADIUS.lg,
-        borderBottomRightRadius: BORDER_RADIUS.lg,
-        borderBottomLeftRadius: BORDER_RADIUS.sm,
     },
-    optimisticBubble: {
-        opacity: 0.6,
+    visiteProposedBubble: {
+        padding: 0,
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        minWidth: 260,
     },
-    errorBubble: {
-        backgroundColor: `${COLORS.danger}15`,
-        borderColor: COLORS.danger,
-        borderWidth: 1,
-    },
-    messageText: {
+    text: {
         fontSize: TYPOGRAPHY.fontSizeMD,
-        lineHeight: 22,
+        lineHeight: 20,
     },
-    myMessageText: {
+    myText: {
         color: COLORS.surface,
     },
-    theirMessageText: {
+    otherText: {
         color: COLORS.textPrimary,
     },
-    errorSubText: {
-        fontSize: TYPOGRAPHY.fontSizeXS,
-        color: COLORS.danger,
-        marginTop: 4,
-    },
-    footerRow: {
+    footer: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
         alignItems: 'center',
         marginTop: 4,
     },
-    timeText: {
-        fontSize: 11,
+    time: {
+        fontSize: 10,
     },
-    myTimeText: {
-        color: 'rgba(255,255,255,0.7)',
+    myTime: {
+        color: `${COLORS.surface}CC`,
     },
-    theirTimeText: {
+    otherTime: {
         color: COLORS.textSecondary,
     },
-    indicator: {
+    statusIcon: {
         marginLeft: 4,
     },
-
-    /** VISITE STYLES */
-    visitBubble: {
-        borderWidth: 1,
-        borderRadius: BORDER_RADIUS.lg,
-        padding: SPACING.lg,
-        width: 260,
+    systemContainer: {
+        alignSelf: 'center',
+        marginVertical: SPACING.md,
+        alignItems: 'center',
     },
-    visitBubbleProposee: {
-        backgroundColor: `${COLORS.warning}1A`, // 10%
-        borderColor: COLORS.warning,
-    },
-    visitBubbleConfirmee: {
-        backgroundColor: `${COLORS.secondary}1A`, // 10%
-        borderColor: COLORS.secondary,
-    },
-    visitHeader: {
+    systemBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: SPACING.sm,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: BORDER_RADIUS.full,
+        marginBottom: 4,
     },
-    visitTitle: {
-        fontSize: TYPOGRAPHY.fontSizeMD,
+    systemText: {
+        fontSize: 12,
         fontWeight: 'bold',
-        marginLeft: SPACING.xs,
+        marginLeft: 6,
     },
-    visitDivider: {
-        height: 1,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        marginVertical: SPACING.sm,
-    },
-    visitDateRows: {
-        marginVertical: SPACING.xs,
-    },
-    visitDateLabel: {
-        fontSize: TYPOGRAPHY.fontSizeMD,
-        color: COLORS.textPrimary,
-        fontWeight: '600',
-        textTransform: 'capitalize',
-    },
-    visitTimeLabel: {
-        fontSize: TYPOGRAPHY.fontSizeMD,
-        color: COLORS.textPrimary,
-        fontWeight: '600',
-        marginTop: 2,
-    },
-    visitActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: SPACING.md,
-        paddingTop: SPACING.sm,
-    },
-    visitBtnReject: {
-        flex: 1,
-        marginRight: SPACING.xs,
-        paddingVertical: 10,
-        borderRadius: BORDER_RADIUS.md,
-        backgroundColor: 'transparent',
-    },
-    visitBtnAccept: {
-        flex: 1,
-        marginLeft: SPACING.xs,
-        paddingVertical: 10,
-        borderRadius: BORDER_RADIUS.md,
-        backgroundColor: COLORS.surface, // Or transparent depending on desired emphasis
-        borderWidth: 1,
-        borderColor: COLORS.warning,
-        alignItems: 'center',
-    },
-    visitTextReject: {
-        textAlign: 'center',
+    systemTime: {
+        fontSize: 10,
         color: COLORS.textSecondary,
-        fontWeight: 'bold',
-        fontSize: TYPOGRAPHY.fontSizeSM,
     },
-    visitTextAccept: {
-        textAlign: 'center',
-        color: COLORS.warning,
-        fontWeight: 'bold',
-        fontSize: TYPOGRAPHY.fontSizeSM,
-    },
-    visitPendingText: {
-        fontSize: TYPOGRAPHY.fontSizeSM,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-        marginTop: SPACING.md,
-        textAlign: 'center',
-    },
-    visitBtnCalendar: {
-        marginTop: SPACING.md,
-        paddingVertical: 10,
-        borderRadius: BORDER_RADIUS.md,
-        backgroundColor: COLORS.secondary,
-        alignItems: 'center',
-    },
-    visitTextCalendar: {
-        color: COLORS.surface,
-        fontWeight: 'bold',
-        fontSize: TYPOGRAPHY.fontSizeSM,
-    }
 });

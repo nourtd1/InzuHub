@@ -1,197 +1,168 @@
-import { supabase } from '../lib/supabase';
-import { Message, Utilisateur, Visite } from '../types/database.types';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase'
+import type { Message, MessageComplet, VisiteMetadata } from '../types/database.types'
 
-export type MessageAvecExpediteur = Message & {
-    expediteur?: Pick<Utilisateur, 'id_utilisateur' | 'nom_complet' | 'avatar_url'>;
-    // Local fields for offline/optimistic UI
-    isOptimistic?: boolean;
-    hasError?: boolean;
-};
-
+/**
+ * Service pour la gestion des messages et des visites associées.
+ */
 export const messageService = {
     /**
-     * Fetch all messages for a specific conversation with pagination
+     * Récupère les messages d'une conversation (paginés).
+     * Les plus récents en premier (FlatList inversée).
      */
     async fetchMessages(
         conversationId: string,
         page: number = 0,
-        pageSize: number = 30
-    ): Promise<MessageAvecExpediteur[]> {
-        const offset = page * pageSize;
-        const limit = pageSize - 1;
+        limit: number = 30
+    ): Promise<MessageComplet[]> {
+        const from = page * limit
+        const to = from + limit - 1
 
-        // Note: we need to select the relations as well
         const { data, error } = await (supabase.from('messages') as any)
             .select(`
-                *,
-                expediteur:utilisateurs!messages_id_expediteur_fkey(id_utilisateur, nom_complet, avatar_url)
-            `)
+        *,
+        expediteur:utilisateurs!id_expediteur(
+          id_utilisateur,
+          nom_complet,
+          avatar_url
+        )
+      `)
             .eq('id_conversation', conversationId)
             .order('date_envoi', { ascending: false })
-            .range(offset, offset + limit);
+            .range(from, to)
 
         if (error) {
-            console.error('Error fetching messages:', error);
-            throw error;
+            console.error('[messageService] fetchMessages error:', error)
+            throw error
         }
 
         return (data || []).map((msg: any) => ({
             ...msg,
             expediteur: Array.isArray(msg.expediteur) ? msg.expediteur[0] : msg.expediteur
-        }));
+        })) as MessageComplet[]
     },
 
     /**
-     * Send a standard text message
+     * Envoyer un message texte simple.
      */
     async sendMessage(
         conversationId: string,
         expediteurId: string,
         contenu: string,
-        type: 'texte' | 'visite_proposee' | 'visite_confirmee' = 'texte'
-    ): Promise<MessageAvecExpediteur> {
-        const { data, error } = await (supabase.from('messages') as any)
+        type: Message['type'] = 'texte',
+        metadata?: VisiteMetadata
+    ): Promise<MessageComplet> {
+        // 1. Insérer le message
+        const { data: newMsg, error: insertError } = await (supabase.from('messages') as any)
             .insert({
                 id_conversation: conversationId,
                 id_expediteur: expediteurId,
                 contenu,
                 type,
+                metadata,
+                date_envoi: new Date().toISOString()
             })
             .select(`
-                *,
-                expediteur:utilisateurs!messages_id_expediteur_fkey(id_utilisateur, nom_complet, avatar_url)
-            `)
-            .single();
+        *,
+        expediteur:utilisateurs!id_expediteur(
+          id_utilisateur,
+          nom_complet,
+          avatar_url
+        )
+      `)
+            .single()
 
-        if (error) {
-            console.error('Error sending message:', error);
-            throw error;
+        if (insertError) {
+            console.error('[messageService] sendMessage insert error:', insertError)
+            throw insertError
         }
 
-        // Update the conversation's derniere_activite
+        // 2. Mettre à jour la date d'activité de la conversation
         await (supabase.from('conversations') as any)
             .update({ derniere_activite: new Date().toISOString() })
-            .eq('id_conversation', conversationId);
+            .eq('id_conversation', conversationId)
 
         return {
-            ...data,
-            expediteur: Array.isArray(data.expediteur) ? data.expediteur[0] : data.expediteur
-        };
+            ...newMsg,
+            expediteur: Array.isArray(newMsg.expediteur) ? newMsg.expediteur[0] : newMsg.expediteur
+        } as MessageComplet
     },
 
     /**
-     * Mark all unread messages received by the user in this conversation as read
+     * Proposer une visite.
+     * Crée un enregistrement dans 'visites' puis un message de type 'visite_proposee'.
      */
-    async markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
-        const { error } = await (supabase.from('messages') as any)
-            .update({ lu: true })
+    async sendVisiteProposition(
+        conversationId: string,
+        expediteurId: string,
+        dateVisite: string,
+        heureVisite: string
+    ): Promise<MessageComplet> {
+        // 1. Récupérer les détails de la conversation pour id_propriete
+        const { data: conv } = await (supabase.from('conversations') as any)
+            .select('id_propriete')
             .eq('id_conversation', conversationId)
-            .neq('id_expediteur', userId)
-            .eq('lu', false);
+            .single()
 
-        if (error) {
-            console.error('Error marking messages as read:', error);
-        }
-    },
+        if (!conv) throw new Error('Conversation non trouvée')
 
-    /* Subscribe to new messages */
-    subscribeToMessages(
-        conversationId: string,
-        onNewMessage: (message: MessageAvecExpediteur) => void
-    ): RealtimeChannel {
-        return supabase
-            .channel(`chat-${conversationId}`)
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `id_conversation=eq.${conversationId}`
-            }, async (payload) => {
-                const newMsg = payload.new as Message;
-                // Fetch the expediteur info for the new message
-                const { data } = await (supabase.from('utilisateurs') as any)
-                    .select('id_utilisateur, nom_complet, avatar_url')
-                    .eq('id_utilisateur', newMsg.id_expediteur)
-                    .single();
-
-                onNewMessage({
-                    ...newMsg,
-                    expediteur: data
-                });
+        // 2. Insérer l'enregistrement de visite
+        const { data: newVisite, error: visiteError } = await (supabase.from('visites') as any)
+            .insert({
+                id_conversation: conversationId,
+                date_visite: `${dateVisite}T${heureVisite}:00`, // concaténation ISO simple
+                statut: 'proposee'
             })
-            .subscribe();
-    },
+            .select('id_visite')
+            .single()
 
-    /** Subscribe to updates (like message read) */
-    subscribeToMessageUpdates(
-        conversationId: string,
-        onUpdate: (message: MessageAvecExpediteur) => void
-    ): RealtimeChannel {
-        return supabase
-            .channel(`chat-updates-${conversationId}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'messages',
-                filter: `id_conversation=eq.${conversationId}`
-            }, (payload) => {
-                onUpdate(payload.new as MessageAvecExpediteur);
-            })
-            .subscribe();
-    },
+        if (visiteError) throw visiteError
 
-    /** Presence tracking for typing indicators */
-    subscribeToTypingPresence(
-        conversationId: string,
-        currentUserId: string,
-        onTyping: (userId: string, isTyping: boolean) => void
-    ) {
-        const channel = supabase.channel(`typing-${conversationId}`, {
-            config: {
-                presence: {
-                    key: currentUserId,
-                },
-            },
-        });
-
-        channel.on('presence', { event: 'sync' }, () => {
-            const state = channel.presenceState();
-            // state is { [userId]: [{ is_typing: boolean }] }
-            for (const id in state) {
-                if (id !== currentUserId && state[id].length > 0) {
-                    const presenceInfo: any = state[id][0];
-                    if (presenceInfo.is_typing) {
-                        onTyping(id, true);
-                    }
-                }
+        // 3. Envoyer le message de type 'visite_proposee' via sendMessage
+        return this.sendMessage(
+            conversationId,
+            expediteurId,
+            '📅 Proposition de visite envoyée',
+            'visite_proposee',
+            {
+                date_visite: dateVisite,
+                heure_visite: heureVisite,
+                id_visite: newVisite.id_visite
             }
-        });
-
-        channel.subscribe();
-        return channel;
+        )
     },
 
-    unsubscribe(channel: RealtimeChannel): void {
-        supabase.removeChannel(channel);
-    },
+    /**
+     * Mettre à jour le statut d'une visite.
+     */
+    async updateVisiteStatus(
+        conversationId: string,
+        expediteurId: string,
+        visiteId: string,
+        newStatus: 'confirmee' | 'annulee',
+        dateVisite: string,
+        heureVisite: string
+    ): Promise<MessageComplet> {
+        // 1. Mettre à jour le statut dans la table visites
+        const { error: visitUpdateError } = await (supabase.from('visites') as any)
+            .update({ statut: newStatus })
+            .eq('id_visite', visiteId)
 
-    // Optional legacy functions from prompt 
-    async fetchConversationDetails(conversationId: string) {
-        const { data, error } = await (supabase.from('conversations') as any)
-            .select(`
-                *,
-                propriete:proprietes(id_propriete, id_utilisateur, titre, prix_mensuel, quartier:quartiers(nom_quartier)),
-                locataire:utilisateurs!conversations_id_locataire_fkey(id_utilisateur, nom_complet, avatar_url, numero_telephone, statut_verification),
-                proprietaire:utilisateurs!conversations_id_proprietaire_fkey(id_utilisateur, nom_complet, avatar_url, numero_telephone, statut_verification)
-            `)
-            .eq('id_conversation', conversationId)
-            .single();
+        if (visitUpdateError) throw visitUpdateError
 
-        if (error) {
-            console.error('Error fetching conversation details:', error);
-            throw error;
-        }
-        return data;
+        // 2. Créer le message de notification correspondant
+        const type = newStatus === 'confirmee' ? 'visite_confirmee' : 'visite_annulee'
+        const contenu = newStatus === 'confirmee' ? '✅ Visite confirmée !' : '❌ Visite annulée'
+
+        return this.sendMessage(
+            conversationId,
+            expediteurId,
+            contenu,
+            type,
+            {
+                id_visite: visiteId,
+                date_visite: dateVisite,
+                heure_visite: heureVisite
+            }
+        )
     }
-};
+}

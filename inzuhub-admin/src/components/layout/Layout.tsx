@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Users, UserCheck, Flag, Home, LogOut } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getPublicUrl } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function Layout() {
@@ -85,7 +85,7 @@ export default function Layout() {
                             <p className="text-xs text-gray-500">Dernière connexion: Aujourd'hui</p>
                         </div>
                         {user?.avatar_url ? (
-                            <img src={user.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full bg-gray-200" />
+                            <img src={getPublicUrl(user.avatar_url, 'avatars')} alt="Avatar" className="w-8 h-8 rounded-full bg-gray-200" />
                         ) : (
                             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs">
                                 {user?.nom_complet?.[0] || 'A'}
