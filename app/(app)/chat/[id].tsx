@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     View,
     StyleSheet,
@@ -9,15 +9,17 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    Linking
+    Linking,
+    Animated
 } from 'react-native';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useChat } from '../../../src/hooks/useChat';
-import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../src/constants/theme';
+import { COLORS } from '../../../src/constants/theme';
 import { useTranslation } from 'react-i18next';
 import { isSameDay } from 'date-fns';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useHeaderHeight } from '@react-navigation/elements';
 
 import Avatar from '../../../src/components/ui/Avatar';
 import MessageBubble from '../../../src/components/chat/MessageBubble';
@@ -25,23 +27,74 @@ import ChatInputBar from '../../../src/components/chat/ChatInputBar';
 import TypingIndicator from '../../../src/components/chat/TypingIndicator';
 import DateSeparator from '../../../src/components/chat/DateSeparator';
 import VisiteWidget from '../../../src/components/visite/VisiteWidget';
-import ChatHeaderMenu from '../../../src/components/chat/ChatHeaderMenu';
 import { useConversations } from '../../../src/hooks/useConversations';
+
+function OfflineBanner() {
+    const { t } = useTranslation();
+    const [isOffline, setIsOffline] = useState(false);
+    const slideAnim = useRef(new Animated.Value(-60)).current;
+
+    useEffect(() => {
+        const unsubscribe = addEventListener(state => {
+            const offline = !state.isConnected;
+            setIsOffline(offline);
+            Animated.timing(slideAnim, {
+                toValue: offline ? 0 : -60,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        });
+        return unsubscribe;
+    }, []);
+
+    if (!isOffline) return null;
+
+    return (
+        <Animated.View style={{
+            transform: [{ translateY: slideAnim }],
+            backgroundColor: COLORS.warning + '20',
+            borderBottomWidth: 1,
+            borderBottomColor: COLORS.warning + '40',
+            paddingVertical: 8,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+        }}>
+            <Text style={{ fontSize: 16 }}>⚠️</Text>
+            <Text style={{
+                flex: 1,
+                fontSize: 13,
+                color: COLORS.warning,
+                fontWeight: '500',
+            }}>
+                {t('chat.offline_error')}
+            </Text>
+        </Animated.View>
+    );
+}
 
 export default function ChatRoomScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { user } = useAuth();
+    const router = useRouter();
     const { t } = useTranslation();
     const { deleteConversation } = useConversations();
+    const insets = useSafeAreaInsets();
+    const headerHeight = useHeaderHeight();
+    const flatListRef = useRef<FlatList>(null);
 
     const {
         messages,
         isLoading,
         isSending,
-        hasMore,
         isTyping,
         sendMessage,
-        sendVisiteProposition,
         confirmerVisite,
         annulerVisite,
         loadMore,
@@ -76,10 +129,35 @@ export default function ChatRoomScreen() {
         return data;
     }, [messages]);
 
-    const handleCall = () => {
-        if (interlocuteur?.numero_telephone) {
-            Linking.openURL(`tel:${interlocuteur.numero_telephone}`);
+    // Scroll vers le bas à l'ouverture (0 = bas en inversé)
+    useEffect(() => {
+        if (messages.length > 0) {
+            setTimeout(() => {
+                flatListRef.current?.scrollToOffset({
+                    offset: 0,
+                    animated: false,
+                });
+            }, 100);
         }
+    }, []);
+
+    // Scroll automatique nouveau message
+    useEffect(() => {
+        if (messages[0]?.id_expediteur === user?.id) {
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }
+    }, [messages[0]?.id_message]);
+
+    const openActionSheet = () => {
+        Alert.alert(
+            t('chat.options'),
+            undefined,
+            [
+                { text: t('chat.report'), onPress: () => Alert.alert('Signalement', 'Fonctionnalité à venir') },
+                { text: t('common.delete'), style: 'destructive', onPress: handleDelete },
+                { text: t('common.cancel'), style: 'cancel' }
+            ]
+        );
     };
 
     const handleDelete = async () => {
@@ -100,6 +178,12 @@ export default function ChatRoomScreen() {
         );
     };
 
+    const keyboardOffset = Platform.select({
+        ios: headerHeight,
+        android: 0,
+        default: 0,
+    });
+
     if (isLoading && messages.length === 0) {
         return (
             <View style={styles.center}>
@@ -108,91 +192,154 @@ export default function ChatRoomScreen() {
         );
     }
 
-    return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={0}
-        >
-            <Stack.Screen options={{ headerShown: false }} />
-
-            {/* Custom Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <MaterialIcons name="arrow-back" size={24} color={COLORS.textPrimary} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.headerInfo}
-                    activeOpacity={0.7}
-                    onPress={() => property && router.push(`/property/${property.id_propriete}`)}
-                >
-                    <Avatar
-                        uri={interlocuteur?.avatar_url}
-                        name={interlocuteur?.nom_complet || '?'}
-                        size={40}
-                        isVerified={interlocuteur?.statut_verification}
-                    />
-                    <View style={styles.headerText}>
-                        <Text style={styles.headerName} numberOfLines={1}>{interlocuteur?.nom_complet}</Text>
-                        <Text style={styles.headerProperty} numberOfLines={1}>🏠 {property?.titre}</Text>
-                    </View>
-                </TouchableOpacity>
-
-                <View style={styles.headerActions}>
-                    <TouchableOpacity onPress={handleCall} style={styles.headerActionCircle}>
-                        <MaterialIcons name="call" size={20} color={COLORS.primary} />
-                    </TouchableOpacity>
-
-                    <ChatHeaderMenu
-                        propertyId={property?.id_propriete || ''}
-                        onReport={() => Alert.alert('Signalement', 'Fonctionnalité à venir')}
-                        onDelete={handleDelete}
-                    />
-                </View>
+    if (!interlocuteur || !property) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
             </View>
+        );
+    }
 
-            {/* Message List */}
-            <FlatList
-                data={listData}
-                keyExtractor={(item, index) => item.type === 'date' ? `date-${item.date}` : item.data.id_message}
-                inverted
-                contentContainerStyle={styles.listContent}
-                renderItem={({ item }) => {
-                    if (item.type === 'date') return <DateSeparator date={item.date} />;
-                    return (
-                        <MessageBubble
-                            message={item.data}
-                            isMe={item.data.id_expediteur === user?.id}
-                            isProprietaire={!isLocataire}
-                            onConfirmVisite={confirmerVisite}
-                            onCancelVisite={annulerVisite}
-                        />
-                    );
+    return (
+        <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+            <Stack.Screen
+                options={{
+                    headerShown: true,
+                    headerTitle: () => (
+                        <TouchableOpacity
+                            onPress={() => router.push(`/property/${property.id_propriete}`)}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                        >
+                            <Avatar
+                                uri={interlocuteur.avatar_url}
+                                name={interlocuteur.nom_complet}
+                                size={36}
+                                isVerified={interlocuteur.statut_verification}
+                            />
+                            <View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Text style={{
+                                        fontSize: 15,
+                                        fontWeight: '600',
+                                        color: COLORS.textPrimary,
+                                        maxWidth: 160,
+                                    }}
+                                        numberOfLines={1}
+                                    >
+                                        {interlocuteur.nom_complet}
+                                    </Text>
+                                    {interlocuteur.statut_verification === true && (
+                                        <Text style={{ color: COLORS.secondary, fontSize: 13 }}>✓</Text>
+                                    )}
+                                </View>
+                                <Text style={{
+                                    fontSize: 12,
+                                    color: COLORS.textSecondary,
+                                    maxWidth: 160,
+                                }}
+                                    numberOfLines={1}
+                                >
+                                    {property.titre}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    ),
+                    headerRight: () => (
+                        <View style={{ flexDirection: 'row', gap: 4, marginRight: 8 }}>
+                            <TouchableOpacity
+                                onPress={() => Linking.openURL(`tel:${interlocuteur.numero_telephone}`)}
+                                style={{
+                                    width: 36, height: 36, borderRadius: 18,
+                                    backgroundColor: COLORS.secondary + '15',
+                                    justifyContent: 'center', alignItems: 'center',
+                                }}
+                            >
+                                <MaterialIcons name="call" size={18} color={COLORS.secondary} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={openActionSheet}
+                                style={{
+                                    width: 36, height: 36, borderRadius: 18,
+                                    backgroundColor: COLORS.border,
+                                    justifyContent: 'center', alignItems: 'center',
+                                }}
+                            >
+                                <Text style={{
+                                    fontSize: 20, color: COLORS.textPrimary,
+                                    letterSpacing: -2, fontWeight: 'bold'
+                                }}>⋮</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ),
+                    headerShadowVisible: true,
+                    headerBackVisible: true,
+                    headerBackTitle: '',
+                    headerTintColor: COLORS.primary,
                 }}
-                onEndReached={loadMore}
-                onEndReachedThreshold={0.3}
-                ListHeaderComponent={
-                    isTyping ? (
-                        <TypingIndicator
-                            isTyping={true}
-                            userName={interlocuteur?.nom_complet}
-                            userAvatar={interlocuteur?.avatar_url}
-                        />
-                    ) : null
-                }
             />
 
-            {/* Input Bar */}
-            <ChatInputBar
-                onSend={sendMessage}
-                onTyping={broadcastTyping}
-                onScheduleVisit={() => setIsVisiteWidgetVisible(true)}
-                isSending={isSending}
-                canSchedule={isLocataire}
-            />
+            <OfflineBanner />
 
-            {/* Visite Widget Modal */}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={keyboardOffset}
+            >
+                <FlatList
+                    ref={flatListRef}
+                    data={listData}
+                    inverted
+                    keyExtractor={(item, index) => item.type === 'date' ? `date-${item.date}` : item.data.id_message}
+                    renderItem={({ item }) => {
+                        if (item.type === 'date') return <DateSeparator date={item.date} />;
+                        return (
+                            <MessageBubble
+                                message={item.data}
+                                isMe={item.data.id_expediteur === user?.id}
+                                isProprietaire={!isLocataire}
+                                onConfirmVisite={confirmerVisite}
+                                onCancelVisite={annulerVisite}
+                            />
+                        );
+                    }}
+                    contentContainerStyle={{
+                        paddingTop: 16,
+                        paddingBottom: 8,
+                        paddingHorizontal: 16,
+                        flexGrow: 1,
+                    }}
+                    style={{ flex: 1 }}
+                    keyboardDismissMode="interactive"
+                    keyboardShouldPersistTaps="handled"
+                    automaticallyAdjustKeyboardInsets={true}
+                    automaticallyAdjustContentInsets={false}
+                    onEndReached={loadMore}
+                    onEndReachedThreshold={0.3}
+                    maintainVisibleContentPosition={{
+                        minIndexForVisible: 0,
+                        autoscrollToTopThreshold: 100,
+                    }}
+                />
+
+                {isTyping && (
+                    <TypingIndicator
+                        isTyping={true}
+                        userName={interlocuteur.nom_complet}
+                        userAvatar={interlocuteur.avatar_url}
+                    />
+                )}
+
+                <ChatInputBar
+                    onSend={sendMessage}
+                    onOpenVisitePlanner={() => setIsVisiteWidgetVisible(true)}
+                    isSending={isSending}
+                    onTyping={broadcastTyping}
+                    bottomInset={insets.bottom}
+                    canSchedule={isLocataire}
+                />
+            </KeyboardAvoidingView>
+
             {property && (
                 <VisiteWidget
                     visible={isVisiteWidgetVisible}
@@ -203,73 +350,18 @@ export default function ChatRoomScreen() {
                     propertyQuartier={property.quartier?.nom_quartier || ''}
                 />
             )}
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
+// Minimal MaterialIcons shim if not available, but user has it in package.json
+import { MaterialIcons } from '@expo/vector-icons';
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
     center: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    header: {
-        paddingTop: 50,
-        backgroundColor: COLORS.surface,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: SPACING.md,
-        paddingBottom: SPACING.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 3,
-    },
-    backButton: {
-        padding: 4,
-    },
-    headerInfo: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: SPACING.md,
-    },
-    headerText: {
-        marginLeft: SPACING.sm,
-        flex: 1,
-    },
-    headerName: {
-        fontSize: TYPOGRAPHY.fontSizeMD,
-        fontWeight: 'bold',
-        color: COLORS.textPrimary,
-    },
-    headerProperty: {
-        fontSize: 11,
-        color: COLORS.textSecondary,
-        marginTop: 1,
-    },
-    headerActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    headerActionCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: `${COLORS.primary}10`,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: SPACING.xs,
-    },
-    listContent: {
-        paddingVertical: SPACING.md,
-        paddingBottom: SPACING.xl,
+        backgroundColor: COLORS.background
     },
 });

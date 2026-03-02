@@ -19,6 +19,7 @@ import { supabase } from '../src/lib/supabase';
 import { KycDemande } from '../src/types/database.types';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -137,18 +138,21 @@ export default function RootLayout() {
         );
     }
 
+
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
-                <ToastProvider>
-                    <AuthProvider>
-                        <FavorisProvider>
-                            <UnreadProvider>
-                                <RootLayoutNav />
-                            </UnreadProvider>
-                        </FavorisProvider>
-                    </AuthProvider>
-                </ToastProvider>
+                <KeyboardProvider>
+                    <ToastProvider>
+                        <AuthProvider>
+                            <FavorisProvider>
+                                <UnreadProvider>
+                                    <RootLayoutNav />
+                                </UnreadProvider>
+                            </FavorisProvider>
+                        </AuthProvider>
+                    </ToastProvider>
+                </KeyboardProvider>
             </SafeAreaProvider>
         </GestureHandlerRootView>
     );

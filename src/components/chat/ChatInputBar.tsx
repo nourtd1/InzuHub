@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,75 +6,144 @@ import {
     TextInput,
     TouchableOpacity,
     Animated,
-    Keyboard
+    Platform,
+    ActivityIndicator
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import { COLORS } from '../../constants/theme';
 import { useTranslation } from 'react-i18next';
 
 interface ChatInputBarProps {
     onSend: (text: string) => void;
-    onTyping: () => void;
-    onScheduleVisit: () => void;
+    onOpenVisitePlanner: () => void;
     isSending: boolean;
+    onTyping: () => void;
+    bottomInset: number;
     canSchedule?: boolean;
 }
 
 export default function ChatInputBar({
     onSend,
-    onTyping,
-    onScheduleVisit,
+    onOpenVisitePlanner,
     isSending,
+    onTyping,
+    bottomInset,
     canSchedule = true
 }: ChatInputBarProps) {
     const { t } = useTranslation();
     const [text, setText] = useState('');
-    const inputRef = useRef<TextInput>(null);
+    const [inputHeight, setInputHeight] = useState(44);
+    const [isFocused, setIsFocused] = useState(false);
+
+    // Animation scale pour le bouton envoyer
+    const sendScale = useRef(new Animated.Value(1)).current;
+
+    const canSend = text.trim().length > 0 && !isSending;
+
+    const animateSend = () => {
+        Animated.sequence([
+            Animated.spring(sendScale, {
+                toValue: 0.85,
+                useNativeDriver: true,
+                speed: 50,
+            }),
+            Animated.spring(sendScale, {
+                toValue: 1,
+                useNativeDriver: true,
+                speed: 20,
+            }),
+        ]).start();
+    };
 
     const handleSend = () => {
-        if (text.trim()) {
-            onSend(text);
-            setText('');
-            Keyboard.dismiss();
-        }
+        if (!canSend) return;
+        animateSend();
+        onSend(text.trim());
+        setText('');
+        setInputHeight(44);
     };
 
-    const handleChangeText = (val: string) => {
-        setText(val);
-        if (val.length > 0) onTyping();
-    };
+    const borderColor = isFocused || text.length > 0
+        ? COLORS.primary
+        : COLORS.border;
 
     return (
-        <View style={styles.container}>
-            <View style={styles.inputWrapper}>
+        <View
+            style={[
+                styles.container,
+                {
+                    paddingBottom: Math.max(bottomInset, Platform.OS === 'android' ? 8 : 12),
+                }
+            ]}
+        >
+            <View style={styles.content}>
+                {/* Bouton 📅 Proposer une visite */}
                 {canSchedule && (
                     <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={onScheduleVisit}
+                        onPress={onOpenVisitePlanner}
+                        style={styles.calendarButton}
                         activeOpacity={0.7}
                     >
-                        <MaterialIcons name="event" size={24} color={COLORS.primary} />
+                        <Text style={{ fontSize: 20 }}>📅</Text>
                     </TouchableOpacity>
                 )}
 
-                <TextInput
-                    ref={inputRef}
-                    style={styles.input}
-                    placeholder={t('chat.type_message')}
-                    placeholderTextColor={COLORS.textSecondary}
-                    value={text}
-                    onChangeText={handleChangeText}
-                    multiline
-                    maxLength={1000}
-                />
-
-                <TouchableOpacity
-                    style={[styles.sendButton, (!text.trim() || isSending) && styles.sendButtonDisabled]}
-                    onPress={handleSend}
-                    disabled={!text.trim() || isSending}
+                {/* Zone de saisie */}
+                <View
+                    style={[
+                        styles.inputContainer,
+                        { borderColor: borderColor }
+                    ]}
                 >
-                    <MaterialIcons name="send" size={24} color={COLORS.surface} />
-                </TouchableOpacity>
+                    <TextInput
+                        value={text}
+                        onChangeText={(val) => {
+                            setText(val);
+                            onTyping();
+                        }}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        placeholder={t('chat.type_message')}
+                        placeholderTextColor={COLORS.textSecondary}
+                        multiline
+                        scrollEnabled
+                        style={[
+                            styles.input,
+                            {
+                                height: Math.min(Math.max(44, inputHeight), 120),
+                            }
+                        ]}
+                        onContentSizeChange={(e) => {
+                            setInputHeight(e.nativeEvent.contentSize.height);
+                        }}
+                        returnKeyType="default"
+                        blurOnSubmit={false}
+                        textAlignVertical="center"
+                    />
+                </View>
+
+                {/* Bouton Envoyer */}
+                <Animated.View style={{ transform: [{ scale: sendScale }] }}>
+                    <TouchableOpacity
+                        onPress={handleSend}
+                        disabled={!canSend}
+                        style={[
+                            styles.sendButton,
+                            { backgroundColor: canSend ? COLORS.primary : COLORS.border }
+                        ]}
+                        activeOpacity={0.8}
+                    >
+                        {isSending ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                            <Text style={[
+                                styles.sendIcon,
+                                { color: canSend ? '#FFFFFF' : COLORS.textSecondary }
+                            ]}>
+                                ➤
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                </Animated.View>
             </View>
         </View>
     );
@@ -82,52 +151,58 @@ export default function ChatInputBar({
 
 const styles = StyleSheet.create({
     container: {
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
         backgroundColor: COLORS.surface,
         borderTopWidth: 1,
         borderTopColor: COLORS.border,
+        paddingTop: 10,
+        paddingHorizontal: 12,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 10,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 8,
     },
-    inputWrapper: {
+    content: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        backgroundColor: COLORS.background,
-        borderRadius: BORDER_RADIUS.xl,
-        paddingHorizontal: SPACING.xs,
-        paddingVertical: 4,
-        minHeight: 44,
+        gap: 8,
     },
-    actionButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    input: {
-        flex: 1,
-        fontSize: TYPOGRAPHY.fontSizeMD,
-        color: COLORS.textPrimary,
-        paddingVertical: 8,
-        paddingHorizontal: SPACING.sm,
-        maxHeight: 120,
-    },
-    sendButton: {
-        backgroundColor: COLORS.primary,
+    calendarButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
+        backgroundColor: COLORS.primary + '15',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 2,
-        marginRight: 2,
     },
-    sendButtonDisabled: {
-        backgroundColor: COLORS.textSecondary,
-        opacity: 0.5,
+    inputContainer: {
+        flex: 1,
+        minHeight: 44,
+        maxHeight: 120,
+        backgroundColor: COLORS.background,
+        borderRadius: 22,
+        borderWidth: 1.5,
+        paddingHorizontal: 16,
+        paddingVertical: Platform.OS === 'ios' ? 11 : 8,
+        justifyContent: 'center',
+    },
+    input: {
+        fontSize: 16,
+        lineHeight: 22,
+        color: COLORS.textPrimary,
+        paddingTop: 0,
+        paddingBottom: 0,
+    },
+    sendButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sendIcon: {
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
