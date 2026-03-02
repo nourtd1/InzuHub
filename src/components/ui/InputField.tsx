@@ -7,6 +7,7 @@ import { Feather } from '@expo/vector-icons';
 interface InputFieldProps extends TextInputProps {
     label: string;
     error?: string;
+    leftIcon?: React.ReactNode;
     rightIcon?: React.ReactNode;
 }
 
@@ -18,6 +19,7 @@ export function InputField({
     error,
     secureTextEntry,
     keyboardType,
+    leftIcon,
     rightIcon,
     ...props
 }: InputFieldProps) {
@@ -33,6 +35,7 @@ export function InputField({
             <Text style={styles.label}>{label}</Text>
 
             <View style={[styles.inputContainer, error ? styles.inputError : null]}>
+                {leftIcon ? <View style={styles.leftIconContainer}>{leftIcon}</View> : null}
                 <TextInput
                     style={styles.input}
                     value={value}
@@ -98,6 +101,10 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         paddingHorizontal: SPACING.md,
+    },
+    leftIconContainer: {
+        paddingLeft: SPACING.md,
+        paddingRight: SPACING.sm,
     },
     errorText: {
         fontSize: TYPOGRAPHY.fontSizeXS,

@@ -10,6 +10,7 @@ export interface PropertyFilters {
     has_electricite?: boolean;
     searchQuery?: string;
     mustHaveCoordinates?: boolean;
+    statut?: 'disponible' | 'en_cours' | 'loue' | 'all';
 }
 
 export interface CreatePropertyData {
@@ -45,9 +46,12 @@ export const propertyService = {
       `)
             .order('date_publication', { ascending: false });
 
-        // Filtre par défaut : uniquement les disponibles sauf si spécifié autrement (logique à revoir ?)
-        // Le prompt demande "Filtrer uniquement statut = 'disponible' par défaut"
-        query = query.eq('statut', 'disponible');
+        // Par défaut, ne montrer que les annonces disponibles.
+        // Si filters.statut === 'all', ne pas filtrer.
+        const statutFilter = filters.statut ?? 'disponible';
+        if (statutFilter !== 'all') {
+            query = query.eq('statut', statutFilter);
+        }
 
         if (filters.id_quartier) {
             query = query.eq('id_quartier', filters.id_quartier);
@@ -142,10 +146,11 @@ export const propertyService = {
      * Créer une nouvelle annonce
      */
     async createProperty(propertyData: CreatePropertyData): Promise<Propriete> {
+        type ProprieteInsert = Database['public']['Tables']['proprietes']['Insert'];
+
         const { data, error } = await supabase
             .from('proprietes')
-            // @ts-ignore
-            .insert(propertyData as any)
+            .insert(propertyData as ProprieteInsert)
             .select()
             .single();
 
@@ -164,10 +169,11 @@ export const propertyService = {
         id: string,
         statut: 'disponible' | 'en_cours' | 'loue'
     ): Promise<void> {
+        type ProprieteUpdate = Database['public']['Tables']['proprietes']['Update'];
+
         const { error } = await supabase
             .from('proprietes')
-            // @ts-ignore
-            .update({ statut } as any)
+            .update({ statut } as ProprieteUpdate)
             .eq('id_propriete', id);
 
         if (error) {

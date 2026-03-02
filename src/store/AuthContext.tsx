@@ -25,32 +25,54 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const [profile, setProfile] = useState<Utilisateur | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const forceLocalSignOut = async () => {
+        try {
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch {
+            // ignore
+        } finally {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+        }
+    };
+
     useEffect(() => {
-        console.log("AuthContext: Starting initial session check...");
+        if (__DEV__) console.log("AuthContext: Starting initial session check...");
         // 1. Check active session on mount
         supabase.auth.getSession().then(({ data: { session }, error }) => {
-            console.log("AuthContext: getSession finished. Error?", error, "Session?", !!session);
+            if (__DEV__) console.log("AuthContext: getSession finished. Error?", error, "Session?", !!session);
             if (error) {
+                if ((error as any)?.message?.toLowerCase?.().includes('invalid refresh token')) {
+                    forceLocalSignOut();
+                    return;
+                }
                 console.error("Erreur gession de session:", error);
             }
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                console.log("AuthContext: fetching profile for user", session.user.id);
+                if (__DEV__) console.log("AuthContext: fetching profile for user", session.user.id);
                 authService.fetchProfile(session.user.id).then(prof => {
-                    console.log("AuthContext: Profile fetched:", !!prof);
+                    if (__DEV__) console.log("AuthContext: Profile fetched:", !!prof);
                     setProfile(prof);
                 });
             }
         }).catch((err) => {
             console.error("Session fetch failed completely:", err);
         }).finally(() => {
-            console.log("AuthContext: getSession finally block executing, setting isLoading false");
+            if (__DEV__) console.log("AuthContext: getSession finally block executing, setting isLoading false");
             setIsLoading(false);
         });
 
         // 2. Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (_event === 'TOKEN_REFRESH_FAILED') {
+                await forceLocalSignOut();
+                setIsLoading(false);
+                return;
+            }
+
             setSession(session);
             setUser(session?.user ?? null);
 
